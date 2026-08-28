@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+from sqlalchemy import UniqueConstraint
 from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
 
@@ -44,6 +45,7 @@ class Group(SQLModel, table=True):
 
 class IPAddress(SQLModel, table=True):
     __tablename__ = "ip_addresses"
+    __table_args__ = (UniqueConstraint("ip", "group_id", name="uq_ip_group"),)
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     group_id: uuid.UUID = Field(foreign_key="groups.id", index=True)
@@ -63,36 +65,3 @@ class IPAddress(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=utc_now)
 
     group: Optional[Group] = Relationship(back_populates="ips")
-    history: List["IPHistory"] = Relationship(back_populates="ip_address", cascade_delete=True)
-
-
-class IPHistory(SQLModel, table=True):
-    __tablename__ = "ip_history"
-
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    ip_address_id: uuid.UUID = Field(foreign_key="ip_addresses.id", index=True)
-    event_type: EventType = Field(index=True)
-    old_status: Optional[str] = None
-    new_status: Optional[str] = None
-    probe_details: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-    timestamp: datetime = Field(default_factory=utc_now, index=True)
-
-    ip_address: Optional[IPAddress] = Relationship(back_populates="history")
-
-
-class ScanJob(SQLModel, table=True):
-    __tablename__ = "scan_jobs"
-
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    group_id: uuid.UUID = Field(foreign_key="groups.id", index=True)
-    target_ips: List[str] = Field(default_factory=list, sa_column=Column(JSON))
-    status: str = Field(default="QUEUED", index=True)
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-    total_ips: int = Field(default=0)
-    active_ips: int = Field(default=0)
-    uncertain_ips: int = Field(default=0)
-    available_ips: int = Field(default=0)
-    reserved_ips: int = Field(default=0)
-    error_message: Optional[str] = None
-    created_at: datetime = Field(default_factory=utc_now)

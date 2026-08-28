@@ -1,3 +1,4 @@
+import asyncio
 import ipaddress
 import json
 import logging
@@ -80,7 +81,7 @@ def scan(group: Optional[str], ip: Optional[str], no_ports: bool):
         click.echo(f"Scanning {len(target_ips)} IP(s)...")
 
         from netscan_lite.scanner.service import scan_ips
-        result = scan_ips(target_ips, session, group=group_obj, scan_ports=not no_ports)
+        result = asyncio.run(scan_ips(target_ips, session, group=group_obj, scan_ports=not no_ports))
 
         click.echo(
             f"\nResults: {result['active']} active, "

@@ -70,7 +70,7 @@ def get_available_ips(
 
 
 @router.post("/scan", response_model=ScanResponse)
-def trigger_scan(
+async def trigger_scan(
     request: ScanRequest,
     session: Session = Depends(get_session),
 ):
@@ -93,7 +93,7 @@ def trigger_scan(
         raise HTTPException(status_code=400, detail="No IPs to scan")
 
     from netscan_lite.scanner.service import scan_ips
-    result = scan_ips(target_ips, session, group=group_obj)
+    result = await scan_ips(target_ips, session, group=group_obj)
 
     return ScanResponse(
         message=f"Scanned {result['scanned']} IP(s)",
