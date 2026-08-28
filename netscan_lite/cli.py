@@ -81,7 +81,11 @@ def scan(group: Optional[str], ip: Optional[str], no_ports: bool):
         click.echo(f"Scanning {len(target_ips)} IP(s)...")
 
         from netscan_lite.scanner.service import scan_ips
-        result = asyncio.run(scan_ips(target_ips, session, group=group_obj, scan_ports=not no_ports))
+        try:
+            result = asyncio.run(scan_ips(target_ips, session, group=group_obj, scan_ports=not no_ports))
+        except (TimeoutError, RuntimeError) as e:
+            click.echo(f"Scan error: {e}", err=True)
+            raise SystemExit(1)
 
         click.echo(
             f"\nResults: {result['active']} active, "
@@ -154,6 +158,7 @@ def status(ip_address: str, json_output: bool):
                 "hostname": ip_obj.hostname,
                 "mac_address": ip_obj.mac_address,
                 "consecutive_misses": ip_obj.consecutive_misses,
+                "first_seen_at": str(ip_obj.first_seen_at) if ip_obj.first_seen_at else None,
                 "last_seen_at": str(ip_obj.last_seen_at) if ip_obj.last_seen_at else None,
                 "last_scanned_at": str(ip_obj.last_scanned_at) if ip_obj.last_scanned_at else None,
             }

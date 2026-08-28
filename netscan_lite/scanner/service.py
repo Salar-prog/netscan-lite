@@ -9,7 +9,7 @@ from sqlmodel import Session, select
 from netscan_lite.config import settings
 from netscan_lite.models import Group, IPAddress, IPStatus
 from netscan_lite.scanner.classifier import StateClassifier
-from netscan_lite.scanner.runner import NmapScanner
+from netscan_lite.scanner.runner import NmapScanner, ports_to_dicts
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,11 @@ async def scan_ips(
     available = 0
 
     for ip_str in ips:
-        existing = session.exec(select(IPAddress).where(IPAddress.ip == ip_str)).first()
+        ip_str = ip_str.strip()
+        query = select(IPAddress).where(IPAddress.ip == ip_str)
+        if group:
+            query = query.where(IPAddress.group_id == group.id)
+        existing = session.exec(query).first()
         probe = probe_results.get(ip_str)
 
         target_group = (
@@ -72,11 +76,7 @@ async def scan_ips(
                 hostname=outcome.hostname,
                 mac_address=outcome.mac_address,
                 mac_vendor=outcome.mac_vendor,
-                open_ports=[
-                    {"port": p.port, "protocol": p.protocol, "state": p.state,
-                     "service": p.service, "product": p.product, "version": p.version}
-                    for p in probe.open_ports
-                ] if probe else [],
+                open_ports=ports_to_dicts(probe.open_ports) if probe else [],
                 discovery_method=outcome.discovery_method,
                 consecutive_misses=outcome.consecutive_misses,
                 first_seen_at=outcome.first_seen_at,
@@ -89,11 +89,7 @@ async def scan_ips(
             existing.hostname = outcome.hostname or existing.hostname
             existing.mac_address = outcome.mac_address or existing.mac_address
             existing.mac_vendor = outcome.mac_vendor or existing.mac_vendor
-            existing.open_ports = [
-                {"port": p.port, "protocol": p.protocol, "state": p.state,
-                 "service": p.service, "product": p.product, "version": p.version}
-                for p in probe.open_ports
-            ] if probe else existing.open_ports
+            existing.open_ports = ports_to_dicts(probe.open_ports) if probe else existing.open_ports
             existing.discovery_method = outcome.discovery_method
             existing.consecutive_misses = outcome.consecutive_misses
             existing.first_seen_at = outcome.first_seen_at

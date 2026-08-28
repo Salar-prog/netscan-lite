@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from netscan_lite.models import EventType, Group, IPAddress, IPStatus
-from netscan_lite.scanner.runner import HostProbeResult
+from netscan_lite.scanner.runner import HostProbeResult, ports_to_dicts
 
 
 @dataclass
@@ -43,18 +43,7 @@ class StateClassifier:
         last_scanned_at = now
 
         open_ports = (
-            [
-                {
-                    "port": p.port,
-                    "protocol": p.protocol,
-                    "state": p.state,
-                    "service": p.service,
-                    "product": p.product,
-                    "version": p.version,
-                    "reason": p.reason,
-                }
-                for p in (probe.open_ports if probe else [])
-            ]
+            ports_to_dicts(probe.open_ports)
             if probe
             else (existing.open_ports if existing else [])
         )

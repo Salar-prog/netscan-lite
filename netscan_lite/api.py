@@ -93,7 +93,10 @@ async def trigger_scan(
         raise HTTPException(status_code=400, detail="No IPs to scan")
 
     from netscan_lite.scanner.service import scan_ips
-    result = await scan_ips(target_ips, session, group=group_obj)
+    try:
+        result = await scan_ips(target_ips, session, group=group_obj)
+    except (TimeoutError, RuntimeError) as e:
+        raise HTTPException(status_code=502, detail=f"Scan failed: {e}")
 
     return ScanResponse(
         message=f"Scanned {result['scanned']} IP(s)",

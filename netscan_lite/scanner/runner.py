@@ -13,6 +13,16 @@ from netscan_lite.config import settings
 logger = logging.getLogger(__name__)
 
 
+def ports_to_dicts(open_ports: List["PortInfo"]) -> List[Dict[str, Any]]:
+    """Convert PortInfo objects to storable dicts."""
+    return [
+        {"port": p.port, "protocol": p.protocol, "state": p.state,
+         "service": p.service, "product": p.product, "version": p.version,
+         "reason": p.reason}
+        for p in open_ports
+    ]
+
+
 @dataclass
 class PortInfo:
     port: int

@@ -21,7 +21,6 @@ class IPStatus(str, Enum):
 class EventType(str, Enum):
     DISCOVERED = "DISCOVERED"
     STATE_CHANGE = "STATE_CHANGE"
-    RESERVED_TOGGLE = "RESERVED_TOGGLE"
 
 
 # ---------------------------------------------------------------------------
