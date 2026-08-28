@@ -10,12 +10,13 @@ ns-lite is a lightweight IP discovery tool with quarantine logic, extracted from
 - **No scheduler** — scans are on-demand only
 - **No dashboard** — API + CLI interface
 - **CLI binary:** `ns-lite`
+- **Docs site:** MkDocs Material at https://salar-prog.github.io/netscan-lite/
 
 ## Setup & Commands
 
 ```bash
-# Install with xlsx support
-pip install -e ".[xlsx]"
+# Install with all optional deps
+pip install -e ".[xlsx,test,docs]"
 
 # Import IPs from CSV/XLSX
 ns-lite import --file ips.csv
@@ -35,6 +36,13 @@ ns-lite serve
 
 # Run tests
 pytest -v
+
+# Lint & format
+ruff check .
+ruff format .
+
+# Build docs
+mkdocs serve
 ```
 
 ## Architecture Map
@@ -42,17 +50,17 @@ pytest -v
 ```
 netscan_lite/
   scanner/
-    runner.py       # nmap wrapper, scans list of IPs
+    runner.py       # nmap wrapper, scans list of IPs, XML parsing
     classifier.py   # quarantine state machine
     service.py      # scan orchestration (called by CLI + API)
-  models.py         # Group, IPAddress
-  db.py             # SQLModel engine + create_all
+  models.py         # Group, IPAddress (SQLModel tables)
+  db.py             # SQLModel engine + session factory
   config.py         # minimal settings via pydantic-settings
   importer.py       # CSV/XLSX parser
   cli.py            # click CLI (ns-lite binary)
-  api.py            # thin FastAPI wrapper
+  api.py            # FastAPI REST endpoints (router)
   main.py           # app entrypoint
-  __init__.py       # package marker
+  __init__.py       # package marker + version
 ```
 
 Note: `netscan_lite/scanner/cidr.py` exists on disk but is dead code (broken imports from `netscan.config`, references nonexistent `settings.MAX_SCAN_PREFIX_LENGTH`). Do not import it.
@@ -62,6 +70,7 @@ Note: `netscan_lite/scanner/cidr.py` exists on disk but is dead code (broken imp
 - Tests use in-memory SQLite (override `DATABASE_URL` in fixtures)
 - Run with `pytest -v`
 - No nmap required for tests (mock scanner)
+- 56 tests covering: API, CLI, classifier, importer, scanner runner
 
 ## Scanner Behavior
 
@@ -70,6 +79,18 @@ Note: `netscan_lite/scanner/cidr.py` exists on disk but is dead code (broken imp
   - **Privileged (root/CAP_NET_RAW):** ARP ping (`-PR`), ICMP echo (`-PE`), ICMP timestamp (`-PP`), TCP SYN ping (`-PS`), SYN scan (`-sS`)
   - **Unprivileged:** ICMP echo (`-PE`), TCP ACK ping (`-PA`), TCP connect scan (`-sT`)
 - The `discovery_method` field on each `IPAddress` records which probe actually succeeded: `ARP`, `ICMP`, `TCP_SYN`, or `TCP_CONNECT`.
+
+## API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/health` | Health check |
+| `GET` | `/api/groups` | List all groups with quarantine settings |
+| `GET` | `/api/available` | Get available IPs (params: `group`, `count`) |
+| `GET` | `/api/ips/{ip}` | Get IP status with full details |
+| `POST` | `/api/scan` | Trigger scan (body: `group` or `ips`) |
+
+Request/response models are defined in `api.py` (`AvailableResponse`, `ScanRequest`, `ScanResponse`, `GroupResponse`).
 
 ## Known Limitations
 
@@ -90,44 +111,44 @@ Note: `netscan_lite/scanner/cidr.py` exists on disk but is dead code (broken imp
 3. **IPs are unique within a Group** (DB-enforced via UniqueConstraint). Same IP can exist in multiple groups.
 4. **Reserved IPs are locked**. An IP with status `ASSIGNED_RESERVED` stays reserved until explicitly released.
 
+## Data Model
+
+### Group
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Primary key |
+| `name` | string | Unique, indexed |
+| `description` | string? | Optional description |
+| `miss_threshold` | int | Consecutive misses before eligible (default: 3) |
+| `quarantine_hours` | int | Hours in UNCERTAIN before AVAILABLE (default: 48) |
+
+### IPAddress
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Primary key |
+| `group_id` | UUID | FK to Group |
+| `ip` | string | IPv4 address |
+| `status` | IPStatus | Current status enum |
+| `hostname` | string? | Reverse DNS hostname |
+| `mac_address` | string? | MAC address |
+| `mac_vendor` | string? | MAC vendor lookup |
+| `open_ports` | JSON | List of port dicts |
+| `discovery_method` | string? | ARP/ICMP/TCP_SYN/TCP_CONNECT |
+| `consecutive_misses` | int | Missed scans in a row |
+| `first_seen_at` | datetime? | First successful scan |
+| `last_seen_at` | datetime? | Last successful scan |
+| `last_scanned_at` | datetime? | Last scan attempt |
+
+Unique constraint: `(ip, group_id)`.
+
 ## CSV/XLSX Format
 
 Expected columns:
 - `ip` (required) — IPv4 address
 - `hostname` (optional) — hostname or description
 - `group` (optional) — group name (default: "default")
-
-Example:
-```csv
-ip,hostname,group
-10.0.0.1,gateway-01,infra
-10.0.0.5,db-primary,database
-10.0.0.12,,general
-```
-
-## API Endpoints
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/available` | Get available IPs (params: `group`, `count`) |
-| `POST` | `/api/scan` | Trigger scan (body: `group` or `ips`) |
-| `GET` | `/api/groups` | List all groups |
-| `GET` | `/api/ips/{ip}` | Get IP status |
-| `GET` | `/health` | Health check |
-
-## Configuration
-
-Environment variables or `.env` file:
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DATABASE_URL` | `sqlite:///./ns-lite.db` | Database URL |
-| `DEBUG` | `false` | Debug logging |
-| `DEFAULT_MISS_THRESHOLD` | `3` | Consecutive misses before uncertain |
-| `DEFAULT_QUARANTINE_HOURS` | `48` | Hours in uncertain before available |
-| `NMAP_TIMEOUT_SECONDS` | `300` | Per-scan timeout |
-| `NMAP_TIMING_TEMPLATE` | `-T4` | Nmap timing |
-| `TOP_TCP_PORTS` | `80,443,22,445,3389,8080,8443,53` | Ports to scan |
 
 ## Git Workflow
 
@@ -137,11 +158,15 @@ Use feature branches. Never push to `main` directly.
 git checkout -b feat/your-feature
 # make changes
 pytest -v
+ruff check . && ruff format --check .
 git commit -m "feat: description"
 git push origin feat/your-feature
 ```
 
 ## Further Reading
 
-- [README.md](README.md) — usage and examples
+- [README.md](README.md) — usage, API examples, configuration
+- [CONTRIBUTING.md](CONTRIBUTING.md) — how to contribute
+- [CHANGELOG.md](CHANGELOG.md) — version history
+- [Docs site](https://salar-prog.github.io/netscan-lite/) — full documentation
 - Source: extracted from [NetScan](https://github.com/Salar-prog/netscan)
