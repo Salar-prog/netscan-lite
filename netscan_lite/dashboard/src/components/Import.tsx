@@ -1,11 +1,46 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { getGroups, importFile } from '../api'
 import type { Group, ImportResponse } from '../types'
+
+interface PreviewRow {
+  ip: string
+  hostname: string
+  group: string
+  valid: boolean
+  error?: string
+}
+
+function parseCSV(text: string): PreviewRow[] {
+  const lines = text.trim().split('\n')
+  if (lines.length < 2) return []
+
+  const header = lines[0].toLowerCase().split(',').map((h) => h.trim())
+  const ipIdx = header.indexOf('ip')
+  const hostIdx = header.indexOf('hostname')
+  const groupIdx = header.indexOf('group')
+
+  if (ipIdx === -1) return []
+
+  return lines.slice(1, 11).map((line) => {
+    const cols = line.split(',').map((c) => c.trim())
+    const ip = cols[ipIdx] || ''
+    const hostname = hostIdx >= 0 ? cols[hostIdx] || '' : ''
+    const group = groupIdx >= 0 ? cols[groupIdx] || '' : ''
+
+    // Basic IPv4 validation
+    const valid = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(ip)
+    const error = !ip ? 'Missing IP' : !valid ? `Invalid IP: ${ip}` : undefined
+
+    return { ip, hostname, group, valid, error }
+  })
+}
 
 export default function Import() {
   const [groups, setGroups] = useState<Group[]>([])
   const [selectedGroup, setSelectedGroup] = useState('')
   const [file, setFile] = useState<File | null>(null)
+  const [preview, setPreview] = useState<PreviewRow[]>([])
+  const [totalRows, setTotalRows] = useState(0)
   const [importing, setImporting] = useState(false)
   const [result, setResult] = useState<ImportResponse | null>(null)
   const [error, setError] = useState('')
@@ -25,6 +60,21 @@ export default function Import() {
     setFile(f)
     setError('')
     setResult(null)
+    setPreview([])
+
+    // Parse CSV preview (XLSX needs server-side)
+    if (ext === 'csv') {
+      f.text().then((text) => {
+        const rows = parseCSV(text)
+        setPreview(rows)
+        // Count total rows
+        const lines = text.trim().split('\n')
+        setTotalRows(Math.max(0, lines.length - 1))
+      }).catch(() => {})
+    } else {
+      // XLSX: show file info only, preview happens server-side
+      setTotalRows(0)
+    }
   }
 
   const handleDrop = (e: React.DragEvent) => {
@@ -50,10 +100,15 @@ export default function Import() {
 
   const reset = () => {
     setFile(null)
+    setPreview([])
+    setTotalRows(0)
     setResult(null)
     setError('')
     if (inputRef.current) inputRef.current.value = ''
   }
+
+  const validCount = preview.filter((r) => r.valid).length
+  const invalidCount = preview.filter((r) => !r.valid).length
 
   return (
     <div className="p-8">
@@ -96,6 +151,9 @@ export default function Import() {
             <div>
               <p className="text-sm font-medium text-gray-800">{file.name}</p>
               <p className="text-xs text-gray-500 mt-1">{(file.size / 1024).toFixed(1)} KB</p>
+              {totalRows > 0 && (
+                <p className="text-xs text-gray-400 mt-1">{totalRows} row(s) found</p>
+              )}
             </div>
           ) : (
             <div>
@@ -105,6 +163,15 @@ export default function Import() {
           )}
         </div>
 
+        {/* Validation summary */}
+        {preview.length > 0 && (
+          <div className="flex gap-4 mt-3 text-xs">
+            <span className="text-green-600">{validCount} valid</span>
+            {invalidCount > 0 && <span className="text-red-600">{invalidCount} invalid</span>}
+            {totalRows > 10 && <span className="text-gray-400">Showing first 10 of {totalRows} rows</span>}
+          </div>
+        )}
+
         {error && (
           <div className="bg-red-50 text-red-700 text-sm px-3 py-2 rounded-md mt-4">{error}</div>
         )}
@@ -113,7 +180,7 @@ export default function Import() {
         <div className="flex gap-3 mt-4">
           <button
             onClick={handleImport}
-            disabled={!file || importing}
+            disabled={!file || importing || (preview.length > 0 && invalidCount === validCount)}
             className="px-4 py-2 bg-teal-600 text-white text-sm rounded-md hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {importing ? 'Importing...' : 'Import'}
@@ -126,26 +193,59 @@ export default function Import() {
         </div>
       </div>
 
+      {/* Preview table */}
+      {preview.length > 0 && !result && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mt-6">
+          <h3 className="font-semibold text-gray-700 mb-3">Preview</h3>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs text-gray-500 uppercase border-b border-gray-100">
+                <th className="pb-2">IP</th>
+                <th className="pb-2">Hostname</th>
+                <th className="pb-2">Group</th>
+                <th className="pb-2">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {preview.map((row, i) => (
+                <tr key={i} className="border-b border-gray-50">
+                  <td className="py-1 font-mono text-gray-800">{row.ip}</td>
+                  <td className="py-1 text-gray-600">{row.hostname || '—'}</td>
+                  <td className="py-1 text-gray-600">{row.group || 'default'}</td>
+                  <td className="py-1">
+                    {row.valid ? (
+                      <span className="text-green-600 text-xs">Valid</span>
+                    ) : (
+                      <span className="text-red-600 text-xs">{row.error}</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {/* Results */}
       {result && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mt-6">
           <h3 className="font-semibold text-gray-700 mb-3">Import Results</h3>
           <div className="grid grid-cols-3 gap-4 text-center mb-4">
             <div>
-              <div className="text-2xl font-bold text-green-600">{result.imported}</div>
+              <div className="text-3xl font-bold text-green-600">{result.imported}</div>
               <div className="text-xs text-gray-500">Imported</div>
             </div>
             <div>
-              <div className="text-2xl font-bold text-yellow-600">{result.skipped}</div>
+              <div className="text-3xl font-bold text-yellow-600">{result.skipped}</div>
               <div className="text-xs text-gray-500">Skipped</div>
             </div>
             <div>
-              <div className="text-2xl font-bold text-red-600">{result.errors.length}</div>
+              <div className="text-3xl font-bold text-red-600">{result.errors.length}</div>
               <div className="text-xs text-gray-500">Errors</div>
             </div>
           </div>
           {result.errors.length > 0 && (
-            <div className="bg-red-50 rounded-md p-3">
+            <div className="bg-red-50 rounded-md p-3 max-h-40 overflow-y-auto">
               <p className="text-xs font-medium text-red-700 mb-1">Errors:</p>
               <ul className="text-xs text-red-600 space-y-0.5">
                 {result.errors.map((e, i) => <li key={i}>{e}</li>)}
