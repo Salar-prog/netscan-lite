@@ -2,7 +2,7 @@
 
 Get up and running in 3 steps.
 
-## 1. Create your IP list
+## 1. Create Your IP List
 
 Create a CSV file with your IPs:
 
@@ -15,11 +15,13 @@ ip,hostname,group
 10.0.0.25,monitoring,infra
 ```
 
-- `ip` — required, IPv4 address
-- `hostname` — optional, friendly name or reverse DNS
-- `group` — optional, defaults to `"default"`
+| Column | Required | Description |
+|--------|----------|-------------|
+| `ip` | yes | IPv4 address |
+| `hostname` | no | Friendly name or reverse DNS hostname |
+| `group` | no | Group name (defaults to `"default"`) |
 
-## 2. Import and scan
+## 2. Import and Scan
 
 ```bash
 # Import IPs from CSV
@@ -29,7 +31,15 @@ ns-lite import --file ips.csv
 ns-lite scan
 ```
 
-## 3. Get available IPs
+Output:
+
+```
+Scanning 12 IP(s)...
+
+Results: 8 active, 3 uncertain, 1 available
+```
+
+## 3. Get Available IPs
 
 ```bash
 # Get 3 available IPs from the infra group
@@ -45,17 +55,33 @@ Available IPs (infra):
   10.0.0.12
 ```
 
-## What just happened?
+## What Just Happened?
 
 1. **Import** — IPs were added to the database, organized by group
 2. **Scan** — nmap probed each IP using ARP/ICMP/TCP depending on your privileges
 3. **Classify** — each IP was classified as active, uncertain, or available
 
-The first scan establishes a baseline. Run `ns-lite scan` again later to update
-the status of each IP.
+The first scan establishes a baseline. Run `ns-lite scan` again later to update the status of each IP.
 
-## Next steps
+## Using the API
 
-- [CLI Reference](cli.md) — all available commands
-- [API Reference](api.md) — REST API for automation
-- [Configuration](config.md) — customize quarantine thresholds
+Start the API server and query it programmatically:
+
+```bash
+# Start the server
+ns-lite serve &
+
+# Get available IPs via API
+curl "http://localhost:8000/api/available?group=infra&count=3" | jq .
+
+# Trigger a scan via API
+curl -X POST http://localhost:8000/api/scan \
+  -H "Content-Type: application/json" \
+  -d '{"group": "infra"}' | jq .
+```
+
+## Next Steps
+
+- [CLI Reference](cli.md) — all available commands and flags
+- [API Reference](api.md) — REST API with client examples (Python, JS, PowerShell, Terraform)
+- [Configuration](config.md) — customize quarantine thresholds, nmap settings, database

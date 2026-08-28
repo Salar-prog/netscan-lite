@@ -21,22 +21,18 @@ DATABASE_URL=sqlite:///./my-network.db
 DEBUG=true
 DEFAULT_MISS_THRESHOLD=5
 DEFAULT_QUARANTINE_HOURS=24
+NMAP_TIMEOUT_SECONDS=600
 ```
 
-## Per-group settings
+## Per-Group Settings
 
-Quarantine thresholds (`miss_threshold` and `quarantine_hours`) are configured
-per-group, not globally. When you create a group (via import or API), it uses
-the `DEFAULT_MISS_THRESHOLD` and `DEFAULT_QUARANTINE_HOURS` values. After that,
-each group maintains its own settings.
+Quarantine thresholds (`miss_threshold` and `quarantine_hours`) are configured per-group, not globally. When you create a group (via import or API), it uses the `DEFAULT_MISS_THRESHOLD` and `DEFAULT_QUARANTINE_HOURS` values. After that, each group maintains its own settings.
 
-This means your database servers can have a stricter quarantine (more misses,
-longer wait) than your app servers — if you configure them differently after import.
+This means your database servers can have a stricter quarantine (more misses, longer wait) than your app servers — if you configure them differently after import.
 
 ## Database
 
-By default, ns-lite uses a SQLite database file (`ns-lite.db`) in the current
-directory. You can point it to any SQLModel-compatible database URL:
+By default, ns-lite uses a SQLite database file (`ns-lite.db`) in the current directory. You can point it to any SQLModel-compatible database URL:
 
 ```bash
 # PostgreSQL (if you need concurrent access)
@@ -48,5 +44,38 @@ DATABASE_URL=sqlite:///./ns-lite.db
 
 !!! note
 
-    SQLite is fine for single-machine use. If you're running multiple ns-lite
-    instances or need concurrent API access, consider PostgreSQL.
+    SQLite is fine for single-machine use. If you're running multiple ns-lite instances or need concurrent API access, consider PostgreSQL.
+
+## Nmap Timing Templates
+
+The `NMAP_TIMING_TEMPLATE` controls scan speed and stealth:
+
+| Template | Speed | Stealth | Use Case |
+|----------|-------|---------|----------|
+| `-T0` | Very slow | Very high | IDS evasion |
+| `-T1` | Slow | High | IDS evasion |
+| `-T2` | Moderate | Moderate | Balanced |
+| `-T3` | Normal | Normal | Default nmap |
+| `-T4` | Fast | Low | **Recommended for ns-lite** |
+| `-T5` | Very fast | Very low | Speed over stealth |
+
+## Top Ports
+
+The `TOP_TCP_PORTS` variable controls which ports are scanned. Default:
+
+```
+80,443,22,445,3389,8080,8443,53
+```
+
+Customize for your environment:
+
+```bash
+# Web servers only
+TOP_TCP_PORTS=80,443,8080,8443
+
+# Database servers
+TOP_TCP_PORTS=3306,5432,1433,27017
+
+# All common ports
+TOP_TCP_PORTS=21,22,23,25,53,80,110,143,443,993,995,1433,3306,3389,5432,8080,8443
+```

@@ -16,6 +16,23 @@ ns-lite import --file ips.xlsx --group database
 | `--file` | Path to CSV or XLSX file (required) |
 | `--group` | Override group for all imported IPs |
 
+**CSV/XLSX format:**
+
+```csv
+ip,hostname,group
+10.0.0.1,gateway-01,infra
+10.0.0.5,db-primary,database
+10.0.0.12,,general
+```
+
+| Column | Required | Description |
+|--------|----------|-------------|
+| `ip` | yes | IPv4 address |
+| `hostname` | no | Friendly name or reverse DNS hostname |
+| `group` | no | Group name (default: `"default"`) |
+
+---
+
 ## scan
 
 Scan IPs using nmap.
@@ -33,9 +50,19 @@ ns-lite scan --no-ports             # skip port scanning
 | `--ip` | Comma-separated list of IPs to scan |
 | `--no-ports` | Skip port scanning (host discovery only) |
 
+**Output example:**
+
+```
+Scanning 12 IP(s)...
+
+Results: 8 active, 3 uncertain, 1 available
+```
+
+---
+
 ## available
 
-Get IPs that are safe to provision.
+Get IPs that are safe to provision (quarantine complete).
 
 ```bash
 ns-lite available --count 3
@@ -49,6 +76,26 @@ ns-lite available --json-output
 | `--group` | Filter by group |
 | `--json-output` | Output as JSON (for Terraform/API) |
 
+**Output example:**
+
+```
+Available IPs (infra):
+  10.0.0.20
+  10.0.0.25
+  10.0.0.12
+```
+
+**JSON output:**
+
+```json
+{
+  "available_ips": ["10.0.0.20", "10.0.0.25", "10.0.0.12"],
+  "count": 3
+}
+```
+
+---
+
 ## groups
 
 List all groups with their quarantine settings.
@@ -58,6 +105,17 @@ ns-lite groups
 ns-lite groups --json-output
 ```
 
+**Output example:**
+
+```
+Groups:
+  infra       threshold=3  quarantine=48h
+  database    threshold=5  quarantine=72h
+  default     threshold=3  quarantine=48h
+```
+
+---
+
 ## status
 
 Show detailed status for a specific IP.
@@ -66,6 +124,21 @@ Show detailed status for a specific IP.
 ns-lite status 10.0.0.1
 ns-lite status 10.0.0.1 --json-output
 ```
+
+**Output example:**
+
+```
+IP:            10.0.0.1
+Status:        ACTIVE_DETECTED
+Hostname:      gateway-01
+MAC:           aa:bb:cc:dd:ee:ff
+Misses:        0
+First seen:    2026-08-28 10:00:00
+Last seen:     2026-08-28 12:00:00
+Last scanned:  2026-08-28 12:00:00
+```
+
+---
 
 ## serve
 
@@ -80,3 +153,5 @@ ns-lite serve --host 0.0.0.0 --port 9000
 |------|-------------|
 | `--host` | Bind address (default: 127.0.0.1) |
 | `--port` | Port number (default: 8000) |
+
+See [API Reference](api.md) for all available endpoints.

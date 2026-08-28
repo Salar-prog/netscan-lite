@@ -26,10 +26,12 @@
     ```bash
     git clone https://github.com/Salar-prog/netscan-lite.git
     cd netscan-lite
-    pip install -e ".[xlsx,test]"
+    pip install -e ".[xlsx,test,docs]"
     ```
 
-## nmap setup
+    Installs everything: XLSX support, test dependencies, and MkDocs for docs.
+
+## nmap Setup
 
 ns-lite uses nmap for network scanning. Install it for your platform:
 
@@ -55,7 +57,9 @@ ns-lite uses nmap for network scanning. Install it for your platform:
 
     Download from [nmap.org/download](https://nmap.org/download.html).
 
-!!! tip "Privileges"
+## Privileges
+
+!!! tip "Running as root"
 
     For ARP and ICMP scanning, run as root or with `CAP_NET_RAW`:
 
@@ -63,12 +67,30 @@ ns-lite uses nmap for network scanning. Install it for your platform:
     sudo ns-lite scan --group infra
     ```
 
-    Without privileges, ns-lite falls back to TCP connect scans — still works,
-    just less stealthy.
+    Without privileges, ns-lite falls back to TCP connect scans — still works, just less stealthy.
 
-## Verify installation
+| Privilege | Probes Available |
+|-----------|------------------|
+| Root / CAP_NET_RAW | ARP, ICMP echo, ICMP timestamp, TCP SYN |
+| Unprivileged | ICMP echo, TCP ACK, TCP connect |
+
+## Verify Installation
 
 ```bash
 ns-lite --version
 nmap --version
 ```
+
+## Docker (optional)
+
+```bash
+# Build
+docker build -t ns-lite .
+
+# Run
+docker run --rm ns-lite scan --group infra
+```
+
+!!! note
+
+    Docker requires `--net=host` or `--privileged` for ARP/ICMP scanning.
