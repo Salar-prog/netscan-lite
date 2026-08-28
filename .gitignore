@@ -57,3 +57,7 @@ htmlcov/
 
 # MkDocs
 site/
+
+# Dashboard
+netscan_lite/static/
+netscan_lite/dashboard/node_modules/
