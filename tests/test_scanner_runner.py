@@ -1,4 +1,5 @@
 """Tests for nmap XML parsing in NmapScanner."""
+
 import pytest
 
 from netscan_lite.scanner.runner import NmapScanner

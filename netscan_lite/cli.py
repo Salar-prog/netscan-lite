@@ -81,6 +81,7 @@ def scan(group: Optional[str], ip: Optional[str], no_ports: bool):
         click.echo(f"Scanning {len(target_ips)} IP(s)...")
 
         from netscan_lite.scanner.service import scan_ips
+
         try:
             result = asyncio.run(scan_ips(target_ips, session, group=group_obj, scan_ports=not no_ports))
         except (TimeoutError, RuntimeError) as e:
@@ -88,8 +89,7 @@ def scan(group: Optional[str], ip: Optional[str], no_ports: bool):
             raise SystemExit(1)
 
         click.echo(
-            f"\nResults: {result['active']} active, "
-            f"{result['uncertain']} uncertain, {result['available']} available"
+            f"\nResults: {result['active']} active, {result['uncertain']} uncertain, {result['available']} available"
         )
 
 
@@ -129,8 +129,15 @@ def groups(json_output: bool):
     with Session(engine) as session:
         all_groups = session.exec(select(Group)).all()
         if json_output:
-            data = [{"name": g.name, "id": str(g.id), "miss_threshold": g.miss_threshold,
-                     "quarantine_hours": g.quarantine_hours} for g in all_groups]
+            data = [
+                {
+                    "name": g.name,
+                    "id": str(g.id),
+                    "miss_threshold": g.miss_threshold,
+                    "quarantine_hours": g.quarantine_hours,
+                }
+                for g in all_groups
+            ]
             click.echo(json.dumps(data, indent=2))
         else:
             if not all_groups:

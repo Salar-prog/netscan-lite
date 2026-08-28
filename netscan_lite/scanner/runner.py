@@ -16,9 +16,15 @@ logger = logging.getLogger(__name__)
 def ports_to_dicts(open_ports: List["PortInfo"]) -> List[Dict[str, Any]]:
     """Convert PortInfo objects to storable dicts."""
     return [
-        {"port": p.port, "protocol": p.protocol, "state": p.state,
-         "service": p.service, "product": p.product, "version": p.version,
-         "reason": p.reason}
+        {
+            "port": p.port,
+            "protocol": p.protocol,
+            "state": p.state,
+            "service": p.service,
+            "product": p.product,
+            "version": p.version,
+            "reason": p.reason,
+        }
         for p in open_ports
     ]
 
@@ -115,8 +121,7 @@ class NmapScanner:
             process.kill()
             await process.wait()
             raise TimeoutError(
-                f"Nmap scan timed out after {settings.NMAP_TIMEOUT_SECONDS} seconds "
-                f"for {len(ips)} targets"
+                f"Nmap scan timed out after {settings.NMAP_TIMEOUT_SECONDS} seconds for {len(ips)} targets"
             )
 
         if process.returncode != 0 and not stdout:

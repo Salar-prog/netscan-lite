@@ -1,5 +1,9 @@
 # ns-lite
 
+[![CI](https://github.com/Salar-prog/netscan-lite/actions/workflows/ci.yml/badge.svg)](https://github.com/Salar-prog/netscan-lite/actions/workflows/ci.yml)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
 Lightweight IP discovery with quarantine logic.
 
 Extracted from [NetScan](https://github.com/Salar-prog/netscan) — scans specific IPs from CSV/XLSX files and tracks availability over time. No dashboard, no scheduler, no bloat.

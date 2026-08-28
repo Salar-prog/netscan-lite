@@ -1,4 +1,5 @@
 """Tests for the quarantine state machine classifier."""
+
 from datetime import timedelta
 
 from sqlmodel import Session
@@ -20,8 +21,11 @@ def _make_group(session: Session, miss_threshold: int = 3, quarantine_hours: int
 
 
 def _make_ip(
-    session: Session, group: Group, ip: str = "10.0.0.1",
-    status: IPStatus = IPStatus.AVAILABLE_CANDIDATE, **kwargs,
+    session: Session,
+    group: Group,
+    ip: str = "10.0.0.1",
+    status: IPStatus = IPStatus.AVAILABLE_CANDIDATE,
+    **kwargs,
 ) -> IPAddress:
     ip_obj = IPAddress(group_id=group.id, ip=ip, status=status, **kwargs)
     session.add(ip_obj)
@@ -31,8 +35,14 @@ def _make_ip(
 
 def _probe(up: bool = True, **kwargs) -> HostProbeResult:
     defaults = dict(
-        ip="10.0.0.1", is_up=up, status_reason="syn-ack", discovery_method="TCP_CONNECT",
-        hostname=None, mac_address=None, mac_vendor=None, open_ports=[],
+        ip="10.0.0.1",
+        is_up=up,
+        status_reason="syn-ack",
+        discovery_method="TCP_CONNECT",
+        hostname=None,
+        mac_address=None,
+        mac_vendor=None,
+        open_ports=[],
     )
     defaults.update(kwargs)
     return HostProbeResult(**defaults)
@@ -150,8 +160,11 @@ def test_uncertain_meets_both_thresholds_becomes_available(session: Session):
     now = utc_now()
     old_time = now - timedelta(hours=2)
     ip = _make_ip(
-        session, group, status=IPStatus.UNCERTAIN_FIREWALLED,
-        consecutive_misses=2, last_seen_at=old_time,
+        session,
+        group,
+        status=IPStatus.UNCERTAIN_FIREWALLED,
+        consecutive_misses=2,
+        last_seen_at=old_time,
     )
 
     outcome = StateClassifier.classify("10.0.0.1", ip, _probe(up=False), group, now=now)
@@ -164,8 +177,11 @@ def test_uncertain_meets_misses_but_not_time_stays_uncertain(session: Session):
     group = _make_group(session, miss_threshold=2, quarantine_hours=48)
     now = utc_now()
     ip = _make_ip(
-        session, group, status=IPStatus.UNCERTAIN_FIREWALLED,
-        consecutive_misses=1, last_seen_at=now - timedelta(hours=1),
+        session,
+        group,
+        status=IPStatus.UNCERTAIN_FIREWALLED,
+        consecutive_misses=1,
+        last_seen_at=now - timedelta(hours=1),
     )
 
     outcome = StateClassifier.classify("10.0.0.1", ip, _probe(up=False), group, now=now)
@@ -178,8 +194,11 @@ def test_uncertain_meets_time_but_not_misses_stays_uncertain(session: Session):
     group = _make_group(session, miss_threshold=5, quarantine_hours=1)
     now = utc_now()
     ip = _make_ip(
-        session, group, status=IPStatus.UNCERTAIN_FIREWALLED,
-        consecutive_misses=1, last_seen_at=now - timedelta(hours=2),
+        session,
+        group,
+        status=IPStatus.UNCERTAIN_FIREWALLED,
+        consecutive_misses=1,
+        last_seen_at=now - timedelta(hours=2),
     )
 
     outcome = StateClassifier.classify("10.0.0.1", ip, _probe(up=False), group, now=now)
@@ -196,10 +215,22 @@ def test_different_groups_have_different_thresholds(session: Session):
     group_b = _make_group(session, miss_threshold=5, quarantine_hours=999)
     now = utc_now()
 
-    ip_a = _make_ip(session, group_a, ip="10.0.0.1", status=IPStatus.UNCERTAIN_FIREWALLED,
-                     consecutive_misses=0, last_seen_at=now - timedelta(hours=1))
-    ip_b = _make_ip(session, group_b, ip="10.0.0.2", status=IPStatus.UNCERTAIN_FIREWALLED,
-                     consecutive_misses=0, last_seen_at=now - timedelta(hours=1))
+    ip_a = _make_ip(
+        session,
+        group_a,
+        ip="10.0.0.1",
+        status=IPStatus.UNCERTAIN_FIREWALLED,
+        consecutive_misses=0,
+        last_seen_at=now - timedelta(hours=1),
+    )
+    ip_b = _make_ip(
+        session,
+        group_b,
+        ip="10.0.0.2",
+        status=IPStatus.UNCERTAIN_FIREWALLED,
+        consecutive_misses=0,
+        last_seen_at=now - timedelta(hours=1),
+    )
 
     outcome_a = StateClassifier.classify("10.0.0.1", ip_a, _probe(up=False), group_a, now=now)
     outcome_b = StateClassifier.classify("10.0.0.2", ip_b, _probe(up=False), group_b, now=now)

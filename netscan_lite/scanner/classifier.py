@@ -42,11 +42,7 @@ class StateClassifier:
         old_status = existing.status if existing else None
         last_scanned_at = now
 
-        open_ports = (
-            ports_to_dicts(probe.open_ports)
-            if probe
-            else (existing.open_ports if existing else [])
-        )
+        open_ports = ports_to_dicts(probe.open_ports) if probe else (existing.open_ports if existing else [])
 
         # Case 1: Manual Reservation Lock
         if existing and existing.status == IPStatus.ASSIGNED_RESERVED:

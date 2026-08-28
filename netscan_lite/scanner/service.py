@@ -55,9 +55,7 @@ async def scan_ips(
         probe = probe_results.get(ip_str)
 
         target_group = (
-            group
-            or (existing.group if existing and existing.group else None)
-            or _get_or_create_default_group(session)
+            group or (existing.group if existing and existing.group else None) or _get_or_create_default_group(session)
         )
 
         outcome = StateClassifier.classify(

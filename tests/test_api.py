@@ -1,4 +1,5 @@
 """Tests for API endpoints."""
+
 from sqlmodel import Session
 
 from netscan_lite.models import Group, IPAddress, IPStatus

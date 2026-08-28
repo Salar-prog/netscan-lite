@@ -1,4 +1,5 @@
 """Tests for CLI commands."""
+
 import pytest
 from click.testing import CliRunner
 from sqlmodel import Session
@@ -43,6 +44,7 @@ def test_groups_json_output(runner, cli_session: Session):
     result = runner.invoke(cli, ["groups", "--json-output"])
     assert result.exit_code == 0
     import json
+
     data = json.loads(result.output)
     assert len(data) == 1
     assert data[0]["name"] == "infra"
@@ -98,6 +100,7 @@ def test_available_json_output(runner, cli_session: Session):
     result = runner.invoke(cli, ["available", "--json-output"])
     assert result.exit_code == 0
     import json
+
     data = json.loads(result.output)
     assert data["available_ips"] == ["10.0.0.1"]
 

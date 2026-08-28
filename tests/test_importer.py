@@ -1,4 +1,5 @@
 """Tests for CSV/XLSX importer edge cases."""
+
 import pytest
 from sqlmodel import Session, select
 
