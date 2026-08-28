@@ -54,3 +54,6 @@ htmlcov/
 
 # Ruff
 .ruff_cache/
+
+# MkDocs
+site/

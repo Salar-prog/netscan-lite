@@ -27,6 +27,7 @@ test = [
     "pytest-asyncio>=0.21",
     "httpx>=0.24",
 ]
+docs = ["mkdocs-material>=9.0"]
 
 [project.scripts]
 ns-lite = "netscan_lite.cli:cli"
