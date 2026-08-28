@@ -4,6 +4,7 @@ import type {
   GroupDetail,
   ImportResponse,
   IPAddress,
+  IPListResponse,
   ScanResponse,
   Stats,
   TokenResponse,
@@ -143,6 +144,22 @@ export function deleteGroup(id: string): Promise<void> {
 // IPs
 // ---------------------------------------------------------------------------
 
+export function listIPs(params: {
+  group?: string
+  status?: string
+  search?: string
+  page?: number
+  page_size?: number
+}): Promise<IPListResponse> {
+  const query = new URLSearchParams()
+  if (params.group) query.set('group', params.group)
+  if (params.status) query.set('status', params.status)
+  if (params.search) query.set('search', params.search)
+  if (params.page) query.set('page', String(params.page))
+  if (params.page_size) query.set('page_size', String(params.page_size))
+  return apiFetch<IPListResponse>(`/api/ips?${query}`)
+}
+
 export function getIP(ip: string): Promise<IPAddress> {
   return apiFetch<IPAddress>(`/api/ips/${ip}`)
 }
@@ -158,6 +175,10 @@ export function reserveIP(ip: string, status: string): Promise<{ ip: string; sta
     method: 'PUT',
     body: JSON.stringify({ status }),
   })
+}
+
+export function scanIP(ip: string): Promise<ScanResponse> {
+  return apiFetch<ScanResponse>(`/api/ips/${ip}/scan`, { method: 'POST' })
 }
 
 // ---------------------------------------------------------------------------

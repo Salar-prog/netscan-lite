@@ -35,9 +35,29 @@ export interface IPAddress {
   open_ports: { port: number; protocol: string; state: string; service: string }[]
   discovery_method: string | null
   consecutive_misses: number
+  group_name: string | null
   first_seen_at: string | null
   last_seen_at: string | null
   last_scanned_at: string | null
+}
+
+export interface IPListItem {
+  ip: string
+  status: IPStatus
+  hostname: string | null
+  mac_address: string | null
+  mac_vendor: string | null
+  group_name: string | null
+  consecutive_misses: number
+  last_seen_at: string | null
+  last_scanned_at: string | null
+}
+
+export interface IPListResponse {
+  ips: IPListItem[]
+  total: number
+  page: number
+  page_size: number
 }
 
 export interface AvailableResponse {

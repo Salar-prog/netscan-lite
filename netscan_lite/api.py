@@ -102,6 +102,25 @@ class ReserveRequest(BaseModel):
         return v
 
 
+class IPListItem(BaseModel):
+    ip: str
+    status: str
+    hostname: Optional[str] = None
+    mac_address: Optional[str] = None
+    mac_vendor: Optional[str] = None
+    group_name: Optional[str] = None
+    consecutive_misses: int = 0
+    last_seen_at: Optional[str] = None
+    last_scanned_at: Optional[str] = None
+
+
+class IPListResponse(BaseModel):
+    ips: List[IPListItem]
+    total: int
+    page: int
+    page_size: int
+
+
 # ---------------------------------------------------------------------------
 # Token endpoint (outside /api prefix so it's at /token)
 # ---------------------------------------------------------------------------
@@ -206,16 +225,78 @@ def list_groups(
     ]
 
 
+@router.get("/ips", response_model=IPListResponse, tags=["IPs"])
+def list_ips(
+    _user: UserPayload = Depends(get_current_user),
+    session: Session = Depends(get_session),
+    group: Optional[str] = None,
+    status_filter: Optional[str] = Query(default=None, alias="status"),
+    search: Optional[str] = None,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=25, ge=1, le=100),
+):
+    """List all IPs with filtering, search, and pagination."""
+    query = select(IPAddress)
+
+    if group:
+        group_obj = session.exec(select(Group).where(Group.name == group)).first()
+        if not group_obj:
+            raise HTTPException(status_code=404, detail=f"Group '{group}' not found")
+        query = query.where(IPAddress.group_id == group_obj.id)
+
+    if status_filter:
+        try:
+            st = IPStatus(status_filter)
+            query = query.where(IPAddress.status == st)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid status: {status_filter}")
+
+    if search:
+        search_pattern = f"%{search}%"
+        query = query.where((IPAddress.ip.like(search_pattern)) | (IPAddress.hostname.like(search_pattern)))
+
+    total = len(session.exec(query).all())
+
+    query = query.order_by(IPAddress.ip).offset((page - 1) * page_size).limit(page_size)
+    ips = session.exec(query).all()
+
+    # Resolve group names
+    group_ids = {ip.group_id for ip in ips}
+    groups_map = {}
+    if group_ids:
+        groups = session.exec(select(Group).where(Group.id.in_(group_ids))).all()
+        groups_map = {g.id: g.name for g in groups}
+
+    items = [
+        IPListItem(
+            ip=ip.ip,
+            status=ip.status.value,
+            hostname=ip.hostname,
+            mac_address=ip.mac_address,
+            mac_vendor=ip.mac_vendor,
+            group_name=groups_map.get(ip.group_id),
+            consecutive_misses=ip.consecutive_misses,
+            last_seen_at=str(ip.last_seen_at) if ip.last_seen_at else None,
+            last_scanned_at=str(ip.last_scanned_at) if ip.last_scanned_at else None,
+        )
+        for ip in ips
+    ]
+
+    return IPListResponse(ips=items, total=total, page=page, page_size=page_size)
+
+
 @router.get("/ips/{ip_address}", tags=["IPs"])
 def get_ip_status(
     ip_address: str,
     _user: UserPayload = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    """Get status of a specific IP."""
+    """Get full status of a specific IP."""
     ip_obj = session.exec(select(IPAddress).where(IPAddress.ip == ip_address)).first()
     if not ip_obj:
         raise HTTPException(status_code=404, detail=f"IP '{ip_address}' not found")
+
+    group = session.get(Group, ip_obj.group_id)
 
     return {
         "ip": ip_obj.ip,
@@ -223,11 +304,42 @@ def get_ip_status(
         "hostname": ip_obj.hostname,
         "mac_address": ip_obj.mac_address,
         "mac_vendor": ip_obj.mac_vendor,
+        "open_ports": ip_obj.open_ports or [],
+        "discovery_method": ip_obj.discovery_method,
         "consecutive_misses": ip_obj.consecutive_misses,
+        "group_name": group.name if group else None,
         "first_seen_at": str(ip_obj.first_seen_at) if ip_obj.first_seen_at else None,
         "last_seen_at": str(ip_obj.last_seen_at) if ip_obj.last_seen_at else None,
         "last_scanned_at": str(ip_obj.last_scanned_at) if ip_obj.last_scanned_at else None,
     }
+
+
+@router.post("/ips/{ip_address}/scan", response_model=ScanResponse, tags=["IPs"])
+async def scan_single_ip(
+    ip_address: str,
+    _user: UserPayload = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Scan a single IP."""
+    ip_obj = session.exec(select(IPAddress).where(IPAddress.ip == ip_address)).first()
+    if not ip_obj:
+        raise HTTPException(status_code=404, detail=f"IP '{ip_address}' not found")
+
+    from netscan_lite.scanner.service import scan_ips
+
+    group = session.get(Group, ip_obj.group_id)
+    try:
+        result = await scan_ips([ip_address], session, group=group)
+    except (TimeoutError, RuntimeError) as e:
+        raise HTTPException(status_code=502, detail=f"Scan failed: {e}")
+
+    return ScanResponse(
+        message=f"Scanned {result['scanned']} IP(s)",
+        scanned=result["scanned"],
+        active=result["active"],
+        uncertain=result["uncertain"],
+        available=result["available"],
+    )
 
 
 # ---------------------------------------------------------------------------

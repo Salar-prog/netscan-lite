@@ -290,3 +290,127 @@ def test_import_duplicate_ip_skipped(db_engine, client, auth_headers):
     data = resp.json()
     assert data["imported"] == 1
     assert data["skipped"] == 1
+
+
+# ---------------------------------------------------------------------------
+# GET /api/ips (paginated list)
+# ---------------------------------------------------------------------------
+
+
+def test_list_ips_empty(client, auth_headers):
+    resp = client.get("/api/ips", headers=auth_headers)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["ips"] == []
+    assert data["total"] == 0
+    assert data["page"] == 1
+
+
+def test_list_ips_with_data(db_engine, client, auth_headers):
+    with Session(db_engine) as session:
+        group = Group(name="infra")
+        session.add(group)
+        session.flush()
+        session.add(IPAddress(group_id=group.id, ip="10.0.0.1", status=IPStatus.ACTIVE_DETECTED, hostname="web-01"))
+        session.add(IPAddress(group_id=group.id, ip="10.0.0.2", status=IPStatus.AVAILABLE_CANDIDATE, hostname="db-01"))
+        session.commit()
+
+    resp = client.get("/api/ips", headers=auth_headers)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 2
+    assert len(data["ips"]) == 2
+    ips = {i["ip"]: i for i in data["ips"]}
+    assert ips["10.0.0.1"]["hostname"] == "web-01"
+    assert ips["10.0.0.1"]["status"] == "ACTIVE_DETECTED"
+    assert ips["10.0.0.1"]["group_name"] == "infra"
+
+
+def test_list_ips_filter_by_status(db_engine, client, auth_headers):
+    with Session(db_engine) as session:
+        group = Group(name="infra")
+        session.add(group)
+        session.flush()
+        session.add(IPAddress(group_id=group.id, ip="10.0.0.1", status=IPStatus.ACTIVE_DETECTED))
+        session.add(IPAddress(group_id=group.id, ip="10.0.0.2", status=IPStatus.AVAILABLE_CANDIDATE))
+        session.commit()
+
+    resp = client.get("/api/ips?status=ACTIVE_DETECTED", headers=auth_headers)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 1
+    assert data["ips"][0]["ip"] == "10.0.0.1"
+
+
+def test_list_ips_filter_by_group(db_engine, client, auth_headers):
+    with Session(db_engine) as session:
+        g1 = Group(name="infra")
+        g2 = Group(name="db")
+        session.add(g1)
+        session.add(g2)
+        session.flush()
+        session.add(IPAddress(group_id=g1.id, ip="10.0.0.1", status=IPStatus.ACTIVE_DETECTED))
+        session.add(IPAddress(group_id=g2.id, ip="10.0.0.2", status=IPStatus.ACTIVE_DETECTED))
+        session.commit()
+
+    resp = client.get("/api/ips?group=infra", headers=auth_headers)
+    assert resp.status_code == 200
+    assert resp.json()["total"] == 1
+    assert resp.json()["ips"][0]["ip"] == "10.0.0.1"
+
+
+def test_list_ips_search(db_engine, client, auth_headers):
+    with Session(db_engine) as session:
+        group = Group(name="infra")
+        session.add(group)
+        session.flush()
+        session.add(IPAddress(group_id=group.id, ip="10.0.0.1", status=IPStatus.ACTIVE_DETECTED, hostname="web-01"))
+        session.add(IPAddress(group_id=group.id, ip="10.0.0.2", status=IPStatus.ACTIVE_DETECTED, hostname="db-01"))
+        session.commit()
+
+    resp = client.get("/api/ips?search=web", headers=auth_headers)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 1
+    assert data["ips"][0]["hostname"] == "web-01"
+
+
+def test_list_ips_pagination(db_engine, client, auth_headers):
+    with Session(db_engine) as session:
+        group = Group(name="infra")
+        session.add(group)
+        session.flush()
+        for i in range(5):
+            session.add(IPAddress(group_id=group.id, ip=f"10.0.0.{i + 1}", status=IPStatus.ACTIVE_DETECTED))
+        session.commit()
+
+    resp = client.get("/api/ips?page=1&page_size=2", headers=auth_headers)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 5
+    assert len(data["ips"]) == 2
+    assert data["page"] == 1
+
+    resp2 = client.get("/api/ips?page=3&page_size=2", headers=auth_headers)
+    data2 = resp2.json()
+    assert len(data2["ips"]) == 1
+
+
+def test_list_ips_invalid_status(client, auth_headers):
+    resp = client.get("/api/ips?status=INVALID", headers=auth_headers)
+    assert resp.status_code == 400
+
+
+def test_list_ips_group_not_found(client, auth_headers):
+    resp = client.get("/api/ips?group=nonexistent", headers=auth_headers)
+    assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# POST /api/ips/{ip}/scan (scan single IP)
+# ---------------------------------------------------------------------------
+
+
+def test_scan_single_ip_not_found(client, auth_headers):
+    resp = client.post("/api/ips/10.0.0.99/scan", headers=auth_headers)
+    assert resp.status_code == 404

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { getIP, reserveIP } from '../api'
+import { getIP, reserveIP, scanIP } from '../api'
 import type { IPAddress, IPStatus } from '../types'
 
 const statusBadge: Record<IPStatus, string> = {
@@ -15,15 +15,19 @@ export default function IpDetail() {
   const navigate = useNavigate()
   const [data, setData] = useState<IPAddress | null>(null)
   const [loading, setLoading] = useState(true)
+  const [scanning, setScanning] = useState(false)
   const [error, setError] = useState('')
 
-  useEffect(() => {
+  const fetchIP = () => {
     if (!ip) return
+    setLoading(true)
     getIP(ip)
       .then(setData)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
-  }, [ip])
+  }
+
+  useEffect(() => { fetchIP() }, [ip])
 
   const handleReserve = async () => {
     if (!data) return
@@ -36,8 +40,22 @@ export default function IpDetail() {
     }
   }
 
+  const handleScan = async () => {
+    if (!data) return
+    setScanning(true)
+    setError('')
+    try {
+      await scanIP(data.ip)
+      fetchIP()
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setScanning(false)
+    }
+  }
+
   if (loading) return <div className="p-8 text-gray-500">Loading...</div>
-  if (error) return <div className="p-8 text-red-500">{error}</div>
+  if (error && !data) return <div className="p-8 text-red-500">{error}</div>
   if (!data) return <div className="p-8 text-gray-500">IP not found</div>
 
   return (
@@ -51,7 +69,14 @@ export default function IpDetail() {
         <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${statusBadge[data.status]}`}>
           {data.status}
         </span>
+        {data.group_name && (
+          <span className="text-sm text-gray-500">Group: {data.group_name}</span>
+        )}
       </div>
+
+      {error && (
+        <div className="bg-red-50 text-red-700 text-sm px-3 py-2 rounded-md mb-4">{error}</div>
+      )}
 
       <div className="grid grid-cols-2 gap-6">
         {/* Info card */}
@@ -103,6 +128,13 @@ export default function IpDetail() {
 
       {/* Actions */}
       <div className="mt-6 flex gap-3">
+        <button
+          onClick={handleScan}
+          disabled={scanning}
+          className="px-4 py-2 bg-teal-600 text-white text-sm rounded-md hover:bg-teal-700 disabled:opacity-50"
+        >
+          {scanning ? 'Scanning...' : 'Scan This IP'}
+        </button>
         <button
           onClick={handleReserve}
           className={`px-4 py-2 text-sm rounded-md ${
