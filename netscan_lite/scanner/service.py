@@ -1,6 +1,5 @@
 """Shared scan service — called by both CLI and API."""
 
-import asyncio
 import logging
 from datetime import datetime, timezone
 from typing import List, Optional
@@ -29,7 +28,7 @@ def _get_or_create_default_group(session: Session) -> Group:
     return group
 
 
-def scan_ips(
+async def scan_ips(
     ips: List[str],
     session: Session,
     group: Optional[Group] = None,
@@ -40,7 +39,7 @@ def scan_ips(
         return {"scanned": 0, "active": 0, "uncertain": 0, "available": 0}
 
     scanner = NmapScanner()
-    probe_results = asyncio.run(scanner.scan_targets(ips, scan_ports=scan_ports))
+    probe_results = await scanner.scan_targets(ips, scan_ports=scan_ports)
 
     now = datetime.now(timezone.utc)
     active = 0

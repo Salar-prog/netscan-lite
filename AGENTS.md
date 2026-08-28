@@ -44,8 +44,8 @@ netscan_lite/
   scanner/
     runner.py       # nmap wrapper, scans list of IPs
     classifier.py   # quarantine state machine
-    cidr.py         # CIDR utilities
-  models.py         # Group, IPAddress, IPHistory, ScanJob
+    service.py      # scan orchestration (called by CLI + API)
+  models.py         # Group, IPAddress
   db.py             # SQLModel engine + create_all
   config.py         # minimal settings via pydantic-settings
   importer.py       # CSV/XLSX parser
@@ -55,11 +55,25 @@ netscan_lite/
   __init__.py       # package marker
 ```
 
+Note: `netscan_lite/scanner/cidr.py` exists on disk but is dead code (broken imports from `netscan.config`, references nonexistent `settings.MAX_SCAN_PREFIX_LENGTH`). Do not import it.
+
 ## Testing
 
 - Tests use in-memory SQLite (override `DATABASE_URL` in fixtures)
 - Run with `pytest -v`
 - No nmap required for tests (mock scanner)
+
+## Scanner Behavior
+
+- **Hostname resolution:** nmap is run with `-R` for reverse DNS. Hostnames are stored on `IPAddress.hostname`. Requires PTR records to be configured on the target IPs; returns `None` if no PTR exists.
+- **Multi-probe detection:** The scanner does NOT rely on a single connection type. Depending on privilege level, it uses:
+  - **Privileged (root/CAP_NET_RAW):** ARP ping (`-PR`), ICMP echo (`-PE`), ICMP timestamp (`-PP`), TCP SYN ping (`-PS`), SYN scan (`-sS`)
+  - **Unprivileged:** ICMP echo (`-PE`), TCP ACK ping (`-PA`), TCP connect scan (`-sT`)
+- The `discovery_method` field on each `IPAddress` records which probe actually succeeded: `ARP`, `ICMP`, `TCP_SYN`, or `TCP_CONNECT`.
+
+## Known Limitations
+
+- `ScanJob` model defined in `models.py` but never used — scans return summary dicts, not persisted job records.
 
 ## Code Conventions
 
@@ -73,7 +87,7 @@ netscan_lite/
 
 1. **Safe availability logic** (`scanner/classifier.py`): an unresponsive host becomes `UNCERTAIN_FIREWALLED`; it may only become available after meeting **both** the consecutive-miss threshold *and* the quarantine duration. Never weaken this.
 2. **Quarantine settings are per-Group**, not global. Each group has its own `miss_threshold` and `quarantine_hours`.
-3. **IPs are unique within a Group**. Same IP can exist in multiple groups.
+3. **IPs are unique within a Group** (DB-enforced via UniqueConstraint). Same IP can exist in multiple groups.
 4. **Reserved IPs are locked**. An IP with status `ASSIGNED_RESERVED` stays reserved until explicitly released.
 
 ## CSV/XLSX Format

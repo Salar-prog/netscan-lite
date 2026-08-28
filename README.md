@@ -8,6 +8,8 @@ Extracted from [NetScan](https://github.com/Salar-prog/netscan) — scans specif
 
 - **CSV/XLSX import** — load IPs from spreadsheets
 - **Targeted scanning** — scan only the IPs you specify
+- **Hostname discovery** — captures hostnames via reverse DNS (requires PTR records)
+- **Multi-probe detection** — uses ARP, ICMP, and TCP probes to determine host availability
 - **Quarantine logic** — safe availability tracking (no false frees)
 - **Groups** — organize IPs with per-group quarantine settings
 - **CLI + API** — use from terminal or integrate with Terraform
@@ -114,6 +116,12 @@ Environment variables or `.env` file:
 4. **Quarantine complete**: After `miss_threshold` misses AND `quarantine_hours` elapsed → `AVAILABLE_CANDIDATE`
 
 This prevents freeing an IP just because a firewall dropped a ping.
+
+## Scanner Behavior
+
+The scanner uses nmap with multiple probe types (ARP, ICMP echo/timestamp, TCP SYN/ACK) depending on
+privilege level. The `discovery_method` field on each IP records which probe actually succeeded. Hostnames
+are captured via reverse DNS (`-R` flag) and require PTR records to be configured on the target IPs.
 
 ## License
 
