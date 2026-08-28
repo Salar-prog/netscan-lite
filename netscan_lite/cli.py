@@ -1,13 +1,14 @@
-import asyncio
+import ipaddress
 import json
 import logging
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
+
 import click
 from sqlmodel import Session, select
+
 from netscan_lite.db import engine, init_db
 from netscan_lite.models import Group, IPAddress, IPStatus
-from netscan_lite.scanner.runner import NmapScanner
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +55,12 @@ def scan(group: Optional[str], ip: Optional[str], no_ports: bool):
     with Session(engine) as session:
         if ip:
             target_ips = [i.strip() for i in ip.split(",") if i.strip()]
+            for ip_str in target_ips:
+                try:
+                    ipaddress.IPv4Address(ip_str)
+                except ValueError:
+                    click.echo(f"Invalid IP address: {ip_str}", err=True)
+                    raise SystemExit(1)
             group_obj = None
         elif group:
             group_obj = session.exec(select(Group).where(Group.name == group)).first()
@@ -71,97 +78,14 @@ def scan(group: Optional[str], ip: Optional[str], no_ports: bool):
             return
 
         click.echo(f"Scanning {len(target_ips)} IP(s)...")
-        scanner = NmapScanner()
-        probe_results = asyncio.run(scanner.scan_targets(target_ips, scan_ports=not no_ports))
-        click.echo(f"Got results for {len(probe_results)} host(s)")
 
-        from netscan_lite.scanner.classifier import StateClassifier
-        from datetime import datetime, timezone
+        from netscan_lite.scanner.service import scan_ips
+        result = scan_ips(target_ips, session, group=group_obj, scan_ports=not no_ports)
 
-        now = datetime.now(timezone.utc)
-        active = 0
-        uncertain = 0
-        available = 0
-
-        for ip_str in target_ips:
-            existing = session.exec(
-                select(IPAddress).where(IPAddress.ip == ip_str)
-            ).first()
-
-            probe = probe_results.get(ip_str)
-            subnet_for_classify = group_obj or _get_or_create_default_group(session)
-
-            outcome = StateClassifier.classify(
-                ip=ip_str,
-                existing=existing,
-                probe=probe,
-                subnet=subnet_for_classify,
-                now=now,
-            )
-
-            if existing is None:
-                ip_obj = IPAddress(
-                    group_id=subnet_for_classify.id,
-                    ip=ip_str,
-                    status=outcome.new_status,
-                    hostname=outcome.hostname,
-                    mac_address=outcome.mac_address,
-                    mac_vendor=outcome.mac_vendor,
-                    open_ports=[
-                        {"port": p.port, "protocol": p.protocol, "state": p.state,
-                         "service": p.service, "product": p.product, "version": p.version}
-                        for p in probe.open_ports
-                    ] if probe else [],
-                    discovery_method=outcome.discovery_method,
-                    consecutive_misses=outcome.consecutive_misses,
-                    first_seen_at=outcome.first_seen_at,
-                    last_seen_at=outcome.last_seen_at,
-                    last_scanned_at=outcome.last_scanned_at,
-                )
-                session.add(ip_obj)
-            else:
-                existing.status = outcome.new_status
-                existing.hostname = outcome.hostname or existing.hostname
-                existing.mac_address = outcome.mac_address or existing.mac_address
-                existing.mac_vendor = outcome.mac_vendor or existing.mac_vendor
-                existing.open_ports = [
-                    {"port": p.port, "protocol": p.protocol, "state": p.state,
-                     "service": p.service, "product": p.product, "version": p.version}
-                    for p in probe.open_ports
-                ] if probe else existing.open_ports
-                existing.discovery_method = outcome.discovery_method
-                existing.consecutive_misses = outcome.consecutive_misses
-                existing.first_seen_at = outcome.first_seen_at
-                existing.last_seen_at = outcome.last_seen_at
-                existing.last_scanned_at = outcome.last_scanned_at
-                existing.updated_at = now
-                session.add(existing)
-
-            if outcome.new_status == IPStatus.ACTIVE_DETECTED:
-                active += 1
-            elif outcome.new_status == IPStatus.UNCERTAIN_FIREWALLED:
-                uncertain += 1
-            elif outcome.new_status == IPStatus.AVAILABLE_CANDIDATE:
-                available += 1
-
-        session.commit()
-        click.echo(f"\nResults: {active} active, {uncertain} uncertain, {available} available")
-
-
-def _get_or_create_default_group(session: Session) -> Group:
-    """Get or create the 'default' group."""
-    existing = session.exec(select(Group).where(Group.name == "default")).first()
-    if existing:
-        return existing
-    from netscan_lite.config import settings
-    group = Group(
-        name="default",
-        miss_threshold=settings.DEFAULT_MISS_THRESHOLD,
-        quarantine_hours=settings.DEFAULT_QUARANTINE_HOURS,
-    )
-    session.add(group)
-    session.flush()
-    return group
+        click.echo(
+            f"\nResults: {result['active']} active, "
+            f"{result['uncertain']} uncertain, {result['available']} available"
+        )
 
 
 @cli.command()
@@ -249,6 +173,7 @@ def status(ip_address: str, json_output: bool):
 def serve(host: str, port: int):
     """Start the API server."""
     import uvicorn
+
     from netscan_lite.main import create_app
 
     app = create_app()

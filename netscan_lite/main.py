@@ -1,8 +1,10 @@
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request
-from netscan_lite.db import init_db
+
+from fastapi import FastAPI
+
 from netscan_lite.api import router
+from netscan_lite.db import init_db
 
 logger = logging.getLogger(__name__)
 

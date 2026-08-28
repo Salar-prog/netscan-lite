@@ -2,10 +2,12 @@ import csv
 import ipaddress
 import logging
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional
+
 from sqlmodel import Session, select
+
 from netscan_lite.config import settings
-from netscan_lite.models import Group, IPAddress, IPStatus, utc_now
+from netscan_lite.models import Group, IPAddress, IPStatus
 
 logger = logging.getLogger(__name__)
 

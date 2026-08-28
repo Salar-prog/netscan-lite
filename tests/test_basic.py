@@ -1,6 +1,7 @@
 """Basic tests for ns-lite."""
 import pytest
 from sqlmodel import Session, select
+
 from netscan_lite.models import Group, IPAddress, IPStatus
 
 
@@ -97,6 +98,7 @@ def test_importer_xlsx(session: Session, tmp_path):
     pytest.importorskip("openpyxl")
 
     from openpyxl import Workbook
+
     from netscan_lite.importer import import_file
 
     xlsx_file = tmp_path / "test.xlsx"

@@ -1,5 +1,6 @@
 from sqlalchemy import event
 from sqlmodel import Session, SQLModel, create_engine
+
 from netscan_lite.config import settings
 
 connect_args = {"check_same_thread": False} if settings.DATABASE_URL.startswith("sqlite") else {}

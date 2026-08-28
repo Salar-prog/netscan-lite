@@ -25,6 +25,7 @@ xlsx = ["openpyxl>=3.1"]
 test = [
     "pytest>=7.0",
     "pytest-asyncio>=0.21",
+    "httpx>=0.24",
 ]
 
 [project.scripts]

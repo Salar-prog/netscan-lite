@@ -3,8 +3,9 @@
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
-from netscan.models import DiscoveryMethod, EventType, IPAddress, IPStatus, Subnet
-from netscan.scanner.runner import HostProbeResult
+
+from netscan_lite.models import EventType, Group, IPAddress, IPStatus
+from netscan_lite.scanner.runner import HostProbeResult
 
 
 @dataclass
@@ -18,7 +19,7 @@ class ClassificationOutcome:
     mac_address: Optional[str]
     mac_vendor: Optional[str]
     open_ports: List[Dict[str, Any]]
-    discovery_method: DiscoveryMethod
+    discovery_method: str
     first_seen_at: Optional[datetime]
     last_seen_at: Optional[datetime]
     last_scanned_at: datetime
@@ -27,14 +28,14 @@ class ClassificationOutcome:
 
 
 class StateClassifier:
-    """Evaluates probe outcomes against subnet quarantine policies."""
+    """Evaluates probe outcomes against group quarantine policies."""
 
     @staticmethod
     def classify(
         ip: str,
         existing: Optional[IPAddress],
         probe: Optional[HostProbeResult],
-        subnet: Subnet,
+        group: Group,
         now: Optional[datetime] = None,
     ) -> ClassificationOutcome:
         now = now or datetime.now(timezone.utc)
@@ -74,7 +75,7 @@ class StateClassifier:
                 mac_address=probe.mac_address if (probe and probe.mac_address) else existing.mac_address,
                 mac_vendor=probe.mac_vendor if (probe and probe.mac_vendor) else existing.mac_vendor,
                 open_ports=open_ports,
-                discovery_method=probe.discovery_method if probe else existing.discovery_method,
+                discovery_method=probe.discovery_method if probe else existing.discovery_method or "",
                 first_seen_at=existing.first_seen_at,
                 last_seen_at=last_seen,
                 last_scanned_at=last_scanned_at,
@@ -109,7 +110,7 @@ class StateClassifier:
                 last_seen_at=now,
                 last_scanned_at=last_scanned_at,
                 event_type=event_type,
-                event_details={"reason": probe.status_reason, "method": probe.discovery_method.value},
+                event_details={"reason": probe.status_reason, "method": probe.discovery_method},
             )
 
         # Case 3: Negative Probe (Host is DOWN or UNRESPONSIVE)
@@ -119,7 +120,7 @@ class StateClassifier:
         hostname = existing.hostname if existing else None
         mac_addr = existing.mac_address if existing else None
         mac_vend = existing.mac_vendor if existing else None
-        method = existing.discovery_method if existing else DiscoveryMethod.NONE
+        method = existing.discovery_method if existing else "NONE"
 
         if old_status == IPStatus.ACTIVE_DETECTED:
             new_status = IPStatus.UNCERTAIN_FIREWALLED
@@ -147,8 +148,8 @@ class StateClassifier:
                 reference_time = reference_time.replace(tzinfo=timezone.utc)
             hours_in_uncertain = (now - reference_time).total_seconds() / 3600.0
 
-            meets_miss_threshold = miss_count >= subnet.miss_threshold
-            meets_quarantine_hours = hours_in_uncertain >= subnet.quarantine_hours
+            meets_miss_threshold = miss_count >= group.miss_threshold
+            meets_quarantine_hours = hours_in_uncertain >= group.quarantine_hours
 
             if meets_miss_threshold and meets_quarantine_hours:
                 new_status = IPStatus.AVAILABLE_CANDIDATE

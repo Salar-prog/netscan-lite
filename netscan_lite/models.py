@@ -2,7 +2,8 @@ import uuid
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
-from sqlmodel import Column, Field, JSON, Relationship, SQLModel
+
+from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
 
 def utc_now() -> datetime:

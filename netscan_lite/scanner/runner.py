@@ -7,6 +7,7 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+
 from netscan_lite.config import settings
 
 logger = logging.getLogger(__name__)
@@ -103,7 +104,10 @@ class NmapScanner:
         except asyncio.TimeoutError:
             process.kill()
             await process.wait()
-            raise TimeoutError(f"Nmap scan timed out after {settings.NMAP_TIMEOUT_SECONDS} seconds for {len(ips)} targets")
+            raise TimeoutError(
+                f"Nmap scan timed out after {settings.NMAP_TIMEOUT_SECONDS} seconds "
+                f"for {len(ips)} targets"
+            )
 
         if process.returncode != 0 and not stdout:
             err_msg = stderr.decode(errors="replace")
