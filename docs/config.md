@@ -14,6 +14,25 @@ ns-lite is configured via environment variables or a `.env` file in your working
 | `NMAP_TIMING_TEMPLATE` | `-T4` | Nmap timing template |
 | `TOP_TCP_PORTS` | `80,443,22,445,3389,8080,8443,53` | Ports to scan when port scanning is enabled |
 
+### LDAP Authentication
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LDAP_ENABLED` | `false` | Enable LDAP authentication |
+| `LDAP_SERVER` | `ldap://localhost` | LDAP server URL |
+| `LDAP_BIND_DN` | `cn=admin,dc=example,dc=com` | Service account DN for searching users |
+| `LDAP_BIND_PASSWORD` | (empty) | Service account password |
+| `LDAP_SEARCH_BASE` | `dc=example,dc=com` | Base DN for user search |
+| `LDAP_SEARCH_FILTER` | `(sAMAccountName={username})` | Search filter (`{username}` is replaced) |
+| `LDAP_STARTTLS` | `false` | Use StartTLS for connection |
+
+### JWT Settings
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `JWT_SECRET_KEY` | (auto-generated) | Secret key for signing tokens |
+| `JWT_EXPIRY_HOURS` | `24` | Token lifetime in hours |
+
 ## Example .env
 
 ```bash

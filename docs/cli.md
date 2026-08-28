@@ -2,6 +2,22 @@
 
 All commands are available as `ns-lite <command>`.
 
+## auth
+
+Authenticate and store a JWT token for API access.
+
+```bash
+ns-lite auth --username jsmith
+ns-lite auth -u jsmith -p secret123
+```
+
+| Flag | Description |
+|------|-------------|
+| `--username`, `-u` | LDAP username (prompted if not provided) |
+| `--password`, `-p` | LDAP password (hidden input, prompted if not provided) |
+
+The token is saved to `~/.ns-lite/token` and used automatically by other ns-lite commands when `LDAP_ENABLED=true`.
+
 ## import
 
 Import IPs from a CSV or XLSX file.

@@ -2,10 +2,12 @@ import ipaddress
 import logging
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, field_validator
 from sqlmodel import Session, select
 
+from netscan_lite.auth import TokenResponse, UserPayload, create_access_token, get_current_user, ldap_authenticate
 from netscan_lite.db import get_session
 from netscan_lite.models import Group, IPAddress, IPStatus
 
@@ -50,8 +52,35 @@ class GroupResponse(BaseModel):
     quarantine_hours: int
 
 
-@router.get("/available", response_model=AvailableResponse)
+# ---------------------------------------------------------------------------
+# Token endpoint (outside /api prefix so it's at /token)
+# ---------------------------------------------------------------------------
+
+auth_router = APIRouter()
+
+
+@auth_router.post("/token", response_model=TokenResponse, tags=["Auth"])
+async def login(form: OAuth2PasswordRequestForm = Depends()):
+    """Authenticate via LDAP and get a JWT token."""
+    user = await ldap_authenticate(form.username, form.password)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    token = create_access_token(username=user.username, dn=user.dn, groups=user.groups)
+    return TokenResponse(access_token=token, username=user.username)
+
+
+# ---------------------------------------------------------------------------
+# Protected API endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.get("/available", response_model=AvailableResponse, tags=["IPs"])
 def get_available_ips(
+    _user: UserPayload = Depends(get_current_user),
     group: Optional[str] = None,
     count: int = Query(default=1, ge=1, le=100),
     session: Session = Depends(get_session),
@@ -69,9 +98,10 @@ def get_available_ips(
     return AvailableResponse(available_ips=[i.ip for i in ips], count=len(ips))
 
 
-@router.post("/scan", response_model=ScanResponse)
+@router.post("/scan", response_model=ScanResponse, tags=["Scanning"])
 async def trigger_scan(
     request: ScanRequest,
+    _user: UserPayload = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
     """Scan IPs for availability."""
@@ -108,8 +138,11 @@ async def trigger_scan(
     )
 
 
-@router.get("/groups", response_model=List[GroupResponse])
-def list_groups(session: Session = Depends(get_session)):
+@router.get("/groups", response_model=List[GroupResponse], tags=["Groups"])
+def list_groups(
+    _user: UserPayload = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
     """List all groups."""
     groups = session.exec(select(Group)).all()
     return [
@@ -123,8 +156,12 @@ def list_groups(session: Session = Depends(get_session)):
     ]
 
 
-@router.get("/ips/{ip_address}")
-def get_ip_status(ip_address: str, session: Session = Depends(get_session)):
+@router.get("/ips/{ip_address}", tags=["IPs"])
+def get_ip_status(
+    ip_address: str,
+    _user: UserPayload = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
     """Get status of a specific IP."""
     ip_obj = session.exec(select(IPAddress).where(IPAddress.ip == ip_address)).first()
     if not ip_obj:

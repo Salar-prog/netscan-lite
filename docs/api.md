@@ -7,11 +7,70 @@ ns-lite serve                          # http://localhost:8000
 ns-lite serve --host 0.0.0.0 --port 9000  # custom bind
 ```
 
+## Authentication
+
+All API endpoints (except `/health` and `/token`) require a valid JWT token.
+
+### Login
+
+```
+POST /token
+Content-Type: application/x-www-form-urlencoded
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `username` | string | LDAP username |
+| `password` | string | LDAP password |
+
+```bash
+curl -X POST http://localhost:8000/token \
+  -d "username=jsmith&password=secret123"
+```
+
+Response:
+
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIs...",
+  "token_type": "bearer",
+  "username": "jsmith"
+}
+```
+
+### Using the token
+
+Include the token in the `Authorization` header for all subsequent requests:
+
+```bash
+curl -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..." \
+  http://localhost:8000/api/groups
+```
+
+### CLI authentication
+
+```bash
+# Login (stores token in ~/.ns-lite/token)
+ns-lite auth --username jsmith
+
+# Then use commands normally
+ns-lite scan --group infra
+ns-lite available --count 3
+```
+
+### LDAP mode vs dev mode
+
+| `LDAP_ENABLED` | Behavior |
+|----------------|----------|
+| `false` (default) | Any token is accepted. No LDAP server needed. Good for local dev. |
+| `true` | Tokens are validated against your LDAP server. Requires LDAP connectivity. |
+
 ## Endpoints Overview
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/health` | Health check |
+| `POST` | `/token` | Login and get JWT token |
+| `GET` | `/health` | Health check (no auth required) |
 | `GET` | `/api/groups` | List all groups |
 | `GET` | `/api/available` | Get available IPs |
 | `GET` | `/api/ips/{ip}` | Get IP status |

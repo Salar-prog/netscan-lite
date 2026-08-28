@@ -1,3 +1,5 @@
+import secrets
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -18,6 +20,19 @@ class Settings(BaseSettings):
     NMAP_TIMEOUT_SECONDS: int = 300
     NMAP_TIMING_TEMPLATE: str = "-T4"
     TOP_TCP_PORTS: str = "80,443,22,445,3389,8080,8443,53"
+
+    # LDAP authentication
+    LDAP_ENABLED: bool = False
+    LDAP_SERVER: str = "ldap://localhost"
+    LDAP_BIND_DN: str = "cn=admin,dc=example,dc=com"
+    LDAP_BIND_PASSWORD: str = ""
+    LDAP_SEARCH_BASE: str = "dc=example,dc=com"
+    LDAP_SEARCH_FILTER: str = "(sAMAccountName={username})"
+    LDAP_STARTTLS: bool = False
+
+    # JWT
+    JWT_SECRET_KEY: str = secrets.token_urlsafe(32)
+    JWT_EXPIRY_HOURS: int = 24
 
 
 settings = Settings()

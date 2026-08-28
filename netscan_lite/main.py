@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from netscan_lite.api import router
+from netscan_lite.api import auth_router, router
 from netscan_lite.db import init_db
 
 logger = logging.getLogger(__name__)
@@ -35,6 +35,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    app.include_router(auth_router)
     app.include_router(router)
 
     @app.get("/health", tags=["System"])

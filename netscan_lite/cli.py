@@ -193,5 +193,54 @@ def serve(host: str, port: int):
     uvicorn.run(app, host=host, port=port)
 
 
+@cli.command()
+@click.option("--username", "-u", prompt="Username", help="LDAP username")
+@click.option("--password", "-p", prompt=True, hide_input=True, help="LDAP password")
+@click.option("--server", "-s", default=None, help="LDAP server URL (overrides env)")
+def auth(username: str, password: str, server: Optional[str]):
+    """Authenticate and store a JWT token for API access.
+
+    The token is saved to ~/.ns-lite/token and used automatically by
+    other ns-lite commands when LDAP is enabled.
+    """
+    import urllib.request
+
+    from netscan_lite.config import settings
+
+    # Determine API base URL
+    api_base = "http://127.0.0.1:8000"
+
+    # Login via the API's /token endpoint
+    import json as json_mod
+
+    data = urllib.parse.urlencode({"username": username, "password": password}).encode()
+    req = urllib.request.Request(f"{api_base}/token", data=data, method="POST")
+    req.add_header("Content-Type", "application/x-www-form-urlencoded")
+
+    try:
+        with urllib.request.urlopen(req) as resp:
+            result = json_mod.loads(resp.read().decode())
+    except urllib.error.HTTPError as e:
+        if e.code == 401:
+            click.echo("Authentication failed: invalid username or password", err=True)
+            raise SystemExit(1)
+        click.echo(f"Authentication failed: {e}", err=True)
+        raise SystemExit(1)
+    except urllib.error.URLError as e:
+        click.echo(f"Cannot reach API server at {api_base}: {e}", err=True)
+        click.echo("Make sure the API server is running: ns-lite serve", err=True)
+        raise SystemExit(1)
+
+    # Save token to ~/.ns-lite/token
+    token_dir = Path.home() / ".ns-lite"
+    token_dir.mkdir(parents=True, exist_ok=True)
+    token_file = token_dir / "token"
+    token_file.write_text(result["access_token"])
+
+    click.echo(f"Authenticated as {result['username']}")
+    click.echo(f"Token saved to {token_file}")
+    click.echo(f"Expires in {settings.JWT_EXPIRY_HOURS} hours")
+
+
 if __name__ == "__main__":
     cli()

@@ -50,6 +50,12 @@ def client_fixture(db_engine):
         yield c
 
 
+@pytest.fixture(name="auth_headers")
+def auth_headers_fixture():
+    """Return auth headers for API tests (LDAP_ENABLED=false accepts any token)."""
+    return {"Authorization": "Bearer test-token"}
+
+
 _cli_engine = None
 
 

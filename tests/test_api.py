@@ -11,19 +11,19 @@ def test_health_check(client):
     assert resp.json()["status"] == "healthy"
 
 
-def test_list_groups_empty(client):
-    resp = client.get("/api/groups")
+def test_list_groups_empty(client, auth_headers):
+    resp = client.get("/api/groups", headers=auth_headers)
     assert resp.status_code == 200
     assert resp.json() == []
 
 
-def test_list_groups_with_data(db_engine, client):
+def test_list_groups_with_data(db_engine, client, auth_headers):
     with Session(db_engine) as session:
         group = Group(name="infra", miss_threshold=3, quarantine_hours=48)
         session.add(group)
         session.commit()
 
-    resp = client.get("/api/groups")
+    resp = client.get("/api/groups", headers=auth_headers)
     assert resp.status_code == 200
     data = resp.json()
     assert len(data) == 1
@@ -31,14 +31,14 @@ def test_list_groups_with_data(db_engine, client):
     assert data[0]["miss_threshold"] == 3
 
 
-def test_get_available_ips_empty(client):
-    resp = client.get("/api/available")
+def test_get_available_ips_empty(client, auth_headers):
+    resp = client.get("/api/available", headers=auth_headers)
     assert resp.status_code == 200
     assert resp.json()["available_ips"] == []
     assert resp.json()["count"] == 0
 
 
-def test_get_available_ips_with_data(db_engine, client):
+def test_get_available_ips_with_data(db_engine, client, auth_headers):
     with Session(db_engine) as session:
         group = Group(name="infra")
         session.add(group)
@@ -47,13 +47,13 @@ def test_get_available_ips_with_data(db_engine, client):
         session.add(ip)
         session.commit()
 
-    resp = client.get("/api/available?count=5")
+    resp = client.get("/api/available?count=5", headers=auth_headers)
     assert resp.status_code == 200
     assert resp.json()["available_ips"] == ["10.0.0.1"]
     assert resp.json()["count"] == 1
 
 
-def test_get_available_ips_filter_by_group(db_engine, client):
+def test_get_available_ips_filter_by_group(db_engine, client, auth_headers):
     with Session(db_engine) as session:
         group_a = Group(name="group-a")
         group_b = Group(name="group-b")
@@ -64,17 +64,17 @@ def test_get_available_ips_filter_by_group(db_engine, client):
         session.add(IPAddress(group_id=group_b.id, ip="10.0.0.2", status=IPStatus.AVAILABLE_CANDIDATE))
         session.commit()
 
-    resp = client.get("/api/available?group=group-a&count=10")
+    resp = client.get("/api/available?group=group-a&count=10", headers=auth_headers)
     assert resp.status_code == 200
     assert resp.json()["available_ips"] == ["10.0.0.1"]
 
 
-def test_get_available_ips_group_not_found(client):
-    resp = client.get("/api/available?group=nonexistent")
+def test_get_available_ips_group_not_found(client, auth_headers):
+    resp = client.get("/api/available?group=nonexistent", headers=auth_headers)
     assert resp.status_code == 404
 
 
-def test_get_ip_status(db_engine, client):
+def test_get_ip_status(db_engine, client, auth_headers):
     with Session(db_engine) as session:
         group = Group(name="infra")
         session.add(group)
@@ -83,7 +83,7 @@ def test_get_ip_status(db_engine, client):
         session.add(ip)
         session.commit()
 
-    resp = client.get("/api/ips/10.0.0.1")
+    resp = client.get("/api/ips/10.0.0.1", headers=auth_headers)
     assert resp.status_code == 200
     data = resp.json()
     assert data["ip"] == "10.0.0.1"
@@ -91,16 +91,21 @@ def test_get_ip_status(db_engine, client):
     assert data["hostname"] == "web-01"
 
 
-def test_get_ip_status_not_found(client):
-    resp = client.get("/api/ips/10.0.0.99")
+def test_get_ip_status_not_found(client, auth_headers):
+    resp = client.get("/api/ips/10.0.0.99", headers=auth_headers)
     assert resp.status_code == 404
 
 
-def test_scan_no_ips(client):
-    resp = client.post("/api/scan", json={})
+def test_scan_no_ips(client, auth_headers):
+    resp = client.post("/api/scan", json={}, headers=auth_headers)
     assert resp.status_code == 400
 
 
-def test_scan_group_not_found(client):
-    resp = client.post("/api/scan", json={"group": "nonexistent"})
+def test_scan_group_not_found(client, auth_headers):
+    resp = client.post("/api/scan", json={"group": "nonexistent"}, headers=auth_headers)
     assert resp.status_code == 404
+
+
+def test_unauthorized_without_token(client):
+    resp = client.get("/api/groups")
+    assert resp.status_code == 401

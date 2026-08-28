@@ -18,6 +18,9 @@ dependencies = [
     "uvicorn>=0.20.0",
     "sqlmodel>=0.0.14",
     "pydantic-settings>=2.0",
+    "ldap3>=2.9",
+    "PyJWT>=2.8",
+    "python-multipart>=0.0.6",
 ]
 
 [project.optional-dependencies]
