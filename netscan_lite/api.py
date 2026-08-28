@@ -1,19 +1,30 @@
 import ipaddress
 import logging
+import tempfile
+from pathlib import Path
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, WebSocket, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, field_validator
-from sqlmodel import Session, select
+from sqlmodel import Session, func, select
 
-from netscan_lite.auth import TokenResponse, UserPayload, create_access_token, get_current_user, ldap_authenticate
-from netscan_lite.db import get_session
+from netscan_lite.auth import (
+    TokenResponse,
+    UserPayload,
+    create_access_token,
+    decode_access_token,
+    get_current_user,
+    ldap_authenticate,
+)
+from netscan_lite.config import settings
+from netscan_lite.db import engine, get_session
 from netscan_lite.models import Group, IPAddress, IPStatus
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api")
+ws_router = APIRouter()
 
 
 class AvailableResponse(BaseModel):
@@ -50,6 +61,45 @@ class GroupResponse(BaseModel):
     name: str
     miss_threshold: int
     quarantine_hours: int
+
+
+class GroupDetailResponse(GroupResponse):
+    description: Optional[str] = None
+    ip_count: int
+
+
+class GroupUpdateRequest(BaseModel):
+    miss_threshold: Optional[int] = None
+    quarantine_hours: Optional[int] = None
+    description: Optional[str] = None
+
+
+class StatsResponse(BaseModel):
+    total_ips: int
+    active: int
+    uncertain: int
+    available: int
+    reserved: int
+    groups: int
+    last_scan: Optional[str] = None
+
+
+class ImportResponse(BaseModel):
+    imported: int
+    skipped: int
+    errors: List[str]
+
+
+class ReserveRequest(BaseModel):
+    status: str
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, v):
+        allowed = {IPStatus.ASSIGNED_RESERVED.value, IPStatus.AVAILABLE_CANDIDATE.value}
+        if v not in allowed:
+            raise ValueError(f"Status must be one of: {', '.join(allowed)}")
+        return v
 
 
 # ---------------------------------------------------------------------------
@@ -178,3 +228,283 @@ def get_ip_status(
         "last_seen_at": str(ip_obj.last_seen_at) if ip_obj.last_seen_at else None,
         "last_scanned_at": str(ip_obj.last_scanned_at) if ip_obj.last_scanned_at else None,
     }
+
+
+# ---------------------------------------------------------------------------
+# Dashboard endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.get("/stats", response_model=StatsResponse, tags=["Dashboard"])
+def get_stats(
+    _user: UserPayload = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Get dashboard overview stats."""
+    total = session.exec(select(func.count(IPAddress.id))).one()
+    active = session.exec(select(func.count(IPAddress.id)).where(IPAddress.status == IPStatus.ACTIVE_DETECTED)).one()
+    uncertain = session.exec(
+        select(func.count(IPAddress.id)).where(IPAddress.status == IPStatus.UNCERTAIN_FIREWALLED)
+    ).one()
+    available = session.exec(
+        select(func.count(IPAddress.id)).where(IPAddress.status == IPStatus.AVAILABLE_CANDIDATE)
+    ).one()
+    reserved = session.exec(
+        select(func.count(IPAddress.id)).where(IPAddress.status == IPStatus.ASSIGNED_RESERVED)
+    ).one()
+    group_count = session.exec(select(func.count(Group.id))).one()
+
+    last_ip = session.exec(
+        select(IPAddress).where(IPAddress.last_scanned_at.is_not(None)).order_by(IPAddress.last_scanned_at.desc())
+    ).first()
+    last_scan = str(last_ip.last_scanned_at) if last_ip and last_ip.last_scanned_at else None
+
+    return StatsResponse(
+        total_ips=total,
+        active=active,
+        uncertain=uncertain,
+        available=available,
+        reserved=reserved,
+        groups=group_count,
+        last_scan=last_scan,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Group management
+# ---------------------------------------------------------------------------
+
+
+@router.get("/groups-detail", response_model=List[GroupDetailResponse], tags=["Groups"])
+def list_groups_detail(
+    _user: UserPayload = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """List all groups with IP counts."""
+    groups = session.exec(select(Group)).all()
+    result = []
+    for g in groups:
+        ip_count = session.exec(select(func.count(IPAddress.id)).where(IPAddress.group_id == g.id)).one()
+        result.append(
+            GroupDetailResponse(
+                id=str(g.id),
+                name=g.name,
+                description=g.description,
+                miss_threshold=g.miss_threshold,
+                quarantine_hours=g.quarantine_hours,
+                ip_count=ip_count,
+            )
+        )
+    return result
+
+
+@router.put("/groups/{group_id}", response_model=GroupDetailResponse, tags=["Groups"])
+def update_group(
+    group_id: str,
+    request: GroupUpdateRequest,
+    _user: UserPayload = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Update group quarantine settings."""
+    import uuid
+
+    try:
+        gid = uuid.UUID(group_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid group ID")
+
+    group = session.get(Group, gid)
+    if not group:
+        raise HTTPException(status_code=404, detail=f"Group '{group_id}' not found")
+
+    if request.miss_threshold is not None:
+        group.miss_threshold = request.miss_threshold
+    if request.quarantine_hours is not None:
+        group.quarantine_hours = request.quarantine_hours
+    if request.description is not None:
+        group.description = request.description
+
+    session.add(group)
+    session.commit()
+    session.refresh(group)
+
+    ip_count = session.exec(select(func.count(IPAddress.id)).where(IPAddress.group_id == group.id)).one()
+
+    return GroupDetailResponse(
+        id=str(group.id),
+        name=group.name,
+        description=group.description,
+        miss_threshold=group.miss_threshold,
+        quarantine_hours=group.quarantine_hours,
+        ip_count=ip_count,
+    )
+
+
+@router.delete("/groups/{group_id}", status_code=204, tags=["Groups"])
+def delete_group(
+    group_id: str,
+    _user: UserPayload = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Delete a group and all its IPs."""
+    import uuid
+
+    try:
+        gid = uuid.UUID(group_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid group ID")
+
+    group = session.get(Group, gid)
+    if not group:
+        raise HTTPException(status_code=404, detail=f"Group '{group_id}' not found")
+
+    # Delete all IPs in the group first
+    ips = session.exec(select(IPAddress).where(IPAddress.group_id == gid)).all()
+    for ip in ips:
+        session.delete(ip)
+
+    session.delete(group)
+    session.commit()
+
+
+# ---------------------------------------------------------------------------
+# IP reserve / release
+# ---------------------------------------------------------------------------
+
+
+@router.put("/ips/{ip_address}/reserve", tags=["IPs"])
+def reserve_ip(
+    ip_address: str,
+    request: ReserveRequest,
+    _user: UserPayload = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Reserve or release an IP."""
+    ip_obj = session.exec(select(IPAddress).where(IPAddress.ip == ip_address)).first()
+    if not ip_obj:
+        raise HTTPException(status_code=404, detail=f"IP '{ip_address}' not found")
+
+    ip_obj.status = IPStatus(request.status)
+    session.add(ip_obj)
+    session.commit()
+    session.refresh(ip_obj)
+
+    return {
+        "ip": ip_obj.ip,
+        "status": ip_obj.status.value,
+        "message": f"IP {ip_address} is now {request.status}",
+    }
+
+
+# ---------------------------------------------------------------------------
+# File import
+# ---------------------------------------------------------------------------
+
+
+@router.post("/import", response_model=ImportResponse, tags=["Import"])
+async def import_file(
+    file: UploadFile,
+    group: Optional[str] = None,
+    _user: UserPayload = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Import IPs from a CSV or XLSX file."""
+    suffix = Path(file.filename or "").suffix.lower()
+    if suffix not in (".csv", ".xlsx"):
+        raise HTTPException(status_code=400, detail="Only .csv and .xlsx files are supported")
+
+    # Save uploaded file to temp location
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        content = await file.read()
+        tmp.write(content)
+        tmp_path = Path(tmp.name)
+
+    try:
+        from netscan_lite.importer import import_file as do_import
+
+        result = do_import(tmp_path, session, group_name=group)
+        return ImportResponse(
+            imported=result["imported"],
+            skipped=result["skipped"],
+            errors=result["errors"],
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+
+# ---------------------------------------------------------------------------
+# WebSocket — real-time scan progress
+# ---------------------------------------------------------------------------
+
+
+@ws_router.websocket("/ws/scan")
+async def ws_scan(websocket: WebSocket):
+    """WebSocket endpoint for real-time scan progress."""
+    await websocket.accept()
+
+    # Authenticate via query param
+    token = websocket.query_params.get("token", "")
+    if settings.LDAP_ENABLED:
+        payload = decode_access_token(token)
+        if payload is None:
+            await websocket.close(code=4001, reason="Invalid or expired token")
+            return
+    # Dev mode: any token accepted
+
+    try:
+        data = await websocket.receive_json()
+    except Exception:
+        await websocket.send_json({"type": "error", "detail": "Invalid JSON"})
+        await websocket.close()
+        return
+
+    group_name = data.get("group")
+    ips = data.get("ips")
+
+    with Session(engine) as session:
+        if group_name:
+            group_obj = session.exec(select(Group).where(Group.name == group_name)).first()
+            if not group_obj:
+                await websocket.send_json({"type": "error", "detail": f"Group '{group_name}' not found"})
+                await websocket.close()
+                return
+            all_ips = session.exec(select(IPAddress).where(IPAddress.group_id == group_obj.id)).all()
+            target_ips = [i.ip for i in all_ips]
+        elif ips:
+            target_ips = ips
+            group_obj = None
+        else:
+            all_ips = session.exec(select(IPAddress)).all()
+            target_ips = [i.ip for i in all_ips]
+            group_obj = None
+
+        if not target_ips:
+            await websocket.send_json({"type": "error", "detail": "No IPs to scan"})
+            await websocket.close()
+            return
+
+        async def on_progress(msg: dict):
+            try:
+                await websocket.send_json(msg)
+            except Exception:
+                pass
+
+        from netscan_lite.scanner.service import scan_ips
+
+        try:
+            result = await scan_ips(target_ips, session, group=group_obj, on_progress=on_progress)
+            await websocket.send_json(
+                {
+                    "type": "complete",
+                    "scanned": result["scanned"],
+                    "active": result["active"],
+                    "uncertain": result["uncertain"],
+                    "available": result["available"],
+                }
+            )
+        except (TimeoutError, RuntimeError) as e:
+            await websocket.send_json({"type": "error", "detail": str(e)})
+
+    await websocket.close()

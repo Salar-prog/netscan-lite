@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Any, Callable, Coroutine, List, Optional
 
 from sqlmodel import Session, select
 
@@ -33,6 +33,7 @@ async def scan_ips(
     session: Session,
     group: Optional[Group] = None,
     scan_ports: bool = True,
+    on_progress: Optional[Callable[[dict], Coroutine[Any, Any, None]]] = None,
 ) -> dict:
     """Scan a list of IPs, classify results, update DB. Returns summary."""
     if not ips:
@@ -48,6 +49,10 @@ async def scan_ips(
 
     for ip_str in ips:
         ip_str = ip_str.strip()
+
+        if on_progress:
+            await on_progress({"type": "progress", "ip": ip_str, "status": "scanning"})
+
         query = select(IPAddress).where(IPAddress.ip == ip_str)
         if group:
             query = query.where(IPAddress.group_id == group.id)
@@ -95,6 +100,9 @@ async def scan_ips(
             existing.last_scanned_at = outcome.last_scanned_at
             existing.updated_at = now
             session.add(existing)
+
+        if on_progress:
+            await on_progress({"type": "progress", "ip": ip_str, "status": "done", "result": outcome.new_status.value})
 
         if outcome.new_status == IPStatus.ACTIVE_DETECTED:
             active += 1
