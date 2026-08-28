@@ -56,6 +56,7 @@ netscan_lite/
   models.py         # Group, IPAddress (SQLModel tables)
   db.py             # SQLModel engine + session factory
   config.py         # minimal settings via pydantic-settings
+  auth.py           # LDAP auth, JWT tokens, FastAPI dependencies
   importer.py       # CSV/XLSX parser
   cli.py            # click CLI (ns-lite binary)
   api.py            # FastAPI REST endpoints (router)
@@ -70,7 +71,7 @@ Note: `netscan_lite/scanner/cidr.py` exists on disk but is dead code (broken imp
 - Tests use in-memory SQLite (override `DATABASE_URL` in fixtures)
 - Run with `pytest -v`
 - No nmap required for tests (mock scanner)
-- 56 tests covering: API, CLI, classifier, importer, scanner runner
+- 57 tests covering: API, CLI, classifier, importer, scanner runner
 
 ## Scanner Behavior
 
@@ -84,11 +85,14 @@ Note: `netscan_lite/scanner/cidr.py` exists on disk but is dead code (broken imp
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/health` | Health check |
+| `POST` | `/token` | Login and get JWT token |
+| `GET` | `/health` | Health check (no auth required) |
 | `GET` | `/api/groups` | List all groups with quarantine settings |
 | `GET` | `/api/available` | Get available IPs (params: `group`, `count`) |
 | `GET` | `/api/ips/{ip}` | Get IP status with full details |
 | `POST` | `/api/scan` | Trigger scan (body: `group` or `ips`) |
+
+All endpoints except `/health` and `/token` require a valid JWT token in the `Authorization: Bearer <token>` header.
 
 Request/response models are defined in `api.py` (`AvailableResponse`, `ScanRequest`, `ScanResponse`, `GroupResponse`).
 

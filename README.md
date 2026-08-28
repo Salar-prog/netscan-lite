@@ -18,6 +18,7 @@ Extracted from [NetScan](https://github.com/Salar-prog/netscan) — scans specif
 - **Quarantine logic** — safe availability tracking with two-factor release (miss count + time)
 - **Groups** — organize IPs with per-group quarantine settings
 - **CLI + REST API** — use from terminal or integrate with Terraform/CI pipelines
+- **LDAP authentication** — JWT-based API auth backed by LDAP; dev mode skips LDAP entirely
 - **JSON output** — every command supports `--json-output` for automation
 
 ## Quick Start
@@ -38,6 +39,7 @@ ns-lite available --count 3
 ## CLI Commands
 
 ```bash
+ns-lite auth --username jsmith              # login, store JWT token
 ns-lite import --file ips.csv              # import from CSV
 ns-lite import --file ips.xlsx --group db  # import with group override
 ns-lite scan --group infra                 # scan a group
@@ -83,7 +85,8 @@ ns-lite serve --host 0.0.0.0 --port 9000  # custom bind
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/health` | Health check |
+| `POST` | `/token` | Login and get JWT token |
+| `GET` | `/health` | Health check (no auth required) |
 | `GET` | `/api/groups` | List all groups |
 | `GET` | `/api/available` | Get available IPs |
 | `GET` | `/api/ips/{ip}` | Get IP status |
@@ -314,25 +317,32 @@ curl -X POST http://localhost:8000/api/scan \
 # Start the server
 ns-lite serve &
 
+# Get a token (skip in dev mode when LDAP_ENABLED=false)
+TOKEN=$(curl -s -X POST http://localhost:8000/token \
+  -d "username=jsmith&password=secret123" | jq -r '.access_token')
+
 # Health check
 curl http://localhost:8000/health
 
 # List groups
-curl http://localhost:8000/api/groups | jq .
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/groups | jq .
 
 # Get 3 available infra IPs
-curl "http://localhost:8000/api/available?group=infra&count=3" | jq .
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:8000/api/available?group=infra&count=3" | jq .
 
 # Check a specific IP
-curl http://localhost:8000/api/ips/10.0.0.1 | jq .
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/ips/10.0.0.1 | jq .
 
 # Trigger a scan for a group
 curl -X POST http://localhost:8000/api/scan \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"group": "infra"}' | jq .
 
 # Trigger a scan for specific IPs
 curl -X POST http://localhost:8000/api/scan \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"ips": ["10.0.0.1", "10.0.0.5"]}' | jq .
 ```
@@ -344,26 +354,31 @@ import requests
 
 BASE = "http://localhost:8000"
 
+# Get a token (skip in dev mode when LDAP_ENABLED=false)
+resp = requests.post(f"{BASE}/token", data={"username": "jsmith", "password": "secret123"})
+token = resp.json()["access_token"]
+headers = {"Authorization": f"Bearer {token}"}
+
 # Health check
 requests.get(f"{BASE}/health").json()
 # {'status': 'ok'}
 
 # List groups
-groups = requests.get(f"{BASE}/api/groups").json()
+groups = requests.get(f"{BASE}/api/groups", headers=headers).json()
 for g in groups:
     print(f"{g['name']}: threshold={g['miss_threshold']}, quarantine={g['quarantine_hours']}h")
 
 # Get available IPs
-resp = requests.get(f"{BASE}/api/available", params={"group": "infra", "count": 3})
+resp = requests.get(f"{BASE}/api/available", params={"group": "infra", "count": 3}, headers=headers)
 ips = resp.json()["available_ips"]
 print(f"Available: {ips}")
 
 # Get IP status
-ip_info = requests.get(f"{BASE}/api/ips/10.0.0.1").json()
+ip_info = requests.get(f"{BASE}/api/ips/10.0.0.1", headers=headers).json()
 print(f"Status: {ip_info['status']}, misses: {ip_info['consecutive_misses']}")
 
 # Trigger scan
-result = requests.post(f"{BASE}/api/scan", json={"group": "infra"}).json()
+result = requests.post(f"{BASE}/api/scan", json={"group": "infra"}, headers=headers).json()
 print(f"Scanned {result['scanned']}: {result['active']} active, {result['uncertain']} uncertain")
 ```
 
@@ -372,15 +387,24 @@ print(f"Scanned {result['scanned']}: {result['active']} active, {result['uncerta
 ```javascript
 const BASE = "http://localhost:8000";
 
+// Get a token (skip in dev mode when LDAP_ENABLED=false)
+const tokenResp = await fetch(`${BASE}/token`, {
+  method: "POST",
+  headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  body: "username=jsmith&password=secret123",
+});
+const { access_token } = await tokenResp.json();
+const headers = { Authorization: `Bearer ${access_token}` };
+
 // Get available IPs
-const resp = await fetch(`${BASE}/api/available?group=infra&count=3`);
+const resp = await fetch(`${BASE}/api/available?group=infra&count=3`, { headers });
 const { available_ips } = await resp.json();
 console.log("Available:", available_ips);
 
 // Trigger scan
 const result = await fetch(`${BASE}/api/scan`, {
   method: "POST",
-  headers: { "Content-Type": "application/json" },
+  headers: { ...headers, "Content-Type": "application/json" },
   body: JSON.stringify({ group: "infra" }),
 }).then(r => r.json());
 console.log(`Scanned ${result.scanned}: ${result.active} active`);
@@ -391,13 +415,17 @@ console.log(`Scanned ${result.scanned}: ${result.active} active`);
 ```powershell
 $base = "http://localhost:8000"
 
+# Get a token (skip in dev mode when LDAP_ENABLED=false)
+$tokenResp = Invoke-RestMethod "$base/token" -Method POST -Body "username=jsmith&password=secret123" -ContentType "application/x-www-form-urlencoded"
+$headers = @{ Authorization = "Bearer $($tokenResp.access_token)" }
+
 # Get available IPs
-$ips = Invoke-RestMethod "$base/api/available?group=infra&count=3"
+$ips = Invoke-RestMethod "$base/api/available?group=infra&count=3" -Headers $headers
 $ips.available_ips
 
 # Trigger scan
 $body = @{ group = "infra" } | ConvertTo-Json
-Invoke-RestMethod -Uri "$base/api/scan" -Method POST -Body $body -ContentType "application/json"
+Invoke-RestMethod -Uri "$base/api/scan" -Method POST -Body $body -ContentType "application/json" -Headers $headers
 ```
 
 ---
@@ -405,9 +433,20 @@ Invoke-RestMethod -Uri "$base/api/scan" -Method POST -Body $body -ContentType "a
 ## Terraform Integration
 
 ```hcl
-# Get available IPs from ns-lite
+# Get a token
+data "http" "token" {
+  url             = "http://ns-lite:8000/token"
+  method          = "POST"
+  request_headers = { "Content-Type" = "application/x-www-form-urlencoded" }
+  request_body    = "username=${var.ns_lite_user}&password=${var.ns_lite_pass}"
+}
+
+# Get available IPs
 data "http" "available_ips" {
   url = "http://ns-lite:8000/api/available?group=infra&count=3"
+  request_headers = {
+    "Authorization" = "Bearer ${jsondecode(data.http.token.body).access_token}"
+  }
 }
 
 locals {
@@ -430,9 +469,22 @@ resource "aws_instance" "nodes" {
 ### Ansible
 
 ```yaml
+- name: Get token from ns-lite
+  ansible.builtin.uri:
+    url: "http://ns-lite:8000/token"
+    method: POST
+    body_format: form-urlencoded
+    body:
+      username: "{{ ns_lite_user }}"
+      password: "{{ ns_lite_pass }}"
+    status_code: 200
+  register: token_resp
+
 - name: Get available IPs from ns-lite
   ansible.builtin.uri:
     url: "http://ns-lite:8000/api/available?group=database&count=2"
+    headers:
+      Authorization: "Bearer {{ token_resp.json.access_token }}"
     return_content: yes
   register: ns_lite
 
@@ -456,6 +508,25 @@ Environment variables or `.env` file:
 | `NMAP_TIMEOUT_SECONDS` | `300` | Per-scan timeout |
 | `NMAP_TIMING_TEMPLATE` | `-T4` | Nmap timing template |
 | `TOP_TCP_PORTS` | `80,443,22,445,3389,8080,8443,53` | Ports to scan |
+
+### LDAP Authentication
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LDAP_ENABLED` | `false` | Enable LDAP auth |
+| `LDAP_SERVER` | `ldap://localhost` | LDAP server URL |
+| `LDAP_BIND_DN` | `cn=admin,dc=example,dc=com` | Service account DN |
+| `LDAP_BIND_PASSWORD` | (empty) | Service account password |
+| `LDAP_SEARCH_BASE` | `dc=example,dc=com` | Base DN for user search |
+| `LDAP_SEARCH_FILTER` | `(sAMAccountName={username})` | Search filter |
+| `LDAP_STARTTLS` | `false` | Use StartTLS |
+
+### JWT Settings
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `JWT_SECRET_KEY` | (auto-generated) | Token signing key |
+| `JWT_EXPIRY_HOURS` | `24` | Token lifetime |
 
 ## How Quarantine Works
 
