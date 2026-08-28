@@ -35,7 +35,7 @@ over time, and won't release an IP just because a firewall dropped a ping.
 
 <div class="stat-item" markdown>
 
-<span class="stat-number">56</span>
+<span class="stat-number">57</span>
 <span class="stat-label">Tests</span>
 
 </div>
@@ -85,6 +85,17 @@ allows. Records which probe actually worked.
 
 Separate your infra, database, and app IPs. Each group has its own quarantine
 thresholds and settings.
+
+</div>
+
+<div class="feature-card" markdown>
+
+<span class="card-icon">:material-shield-lock-outline:</span>
+
+### LDAP authentication
+
+Token-based API auth backed by LDAP. CLI stores tokens automatically. Dev mode
+skips LDAP entirely — no server needed for local work.
 
 </div>
 
@@ -144,11 +155,8 @@ ns-lite scan --group infra
 # Get available IPs for provisioning
 ns-lite available --group infra --count 3
 
-# Output:
-# Available IPs (infra):
-#   10.0.0.20
-#   10.0.0.25
-#   10.0.0.12
+# API auth (optional, for API access)
+ns-lite auth --username jsmith
 ```
 
 </div>

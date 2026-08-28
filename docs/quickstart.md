@@ -71,11 +71,17 @@ Start the API server and query it programmatically:
 # Start the server
 ns-lite serve &
 
+# Get a token (optional in dev mode, required with LDAP_ENABLED=true)
+TOKEN=$(curl -s -X POST http://localhost:8000/token \
+  -d "username=jsmith&password=secret123" | jq -r '.access_token')
+
 # Get available IPs via API
-curl "http://localhost:8000/api/available?group=infra&count=3" | jq .
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:8000/api/available?group=infra&count=3" | jq .
 
 # Trigger a scan via API
 curl -X POST http://localhost:8000/api/scan \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"group": "infra"}' | jq .
 ```

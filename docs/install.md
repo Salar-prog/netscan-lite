@@ -4,6 +4,7 @@
 
 - Python 3.10+
 - [nmap](https://nmap.org/) installed and in your PATH
+- [ldap3](https://pypi.org/project/ldap3/) and PyJWT (included with ns-lite)
 
 === "pip"
 

@@ -278,20 +278,26 @@ curl -X POST http://localhost:8000/api/scan \
 === "cURL"
 
     ```bash
+    # Get a token (skip if LDAP_ENABLED=false and using dev mode)
+    TOKEN=$(curl -s -X POST http://localhost:8000/token \
+      -d "username=jsmith&password=secret123" | jq -r '.access_token')
+
     # Health check
     curl http://localhost:8000/health
 
     # List groups
-    curl http://localhost:8000/api/groups | jq .
+    curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/groups | jq .
 
     # Get available IPs
-    curl "http://localhost:8000/api/available?group=infra&count=3" | jq .
+    curl -H "Authorization: Bearer $TOKEN" \
+      "http://localhost:8000/api/available?group=infra&count=3" | jq .
 
     # Get IP status
-    curl http://localhost:8000/api/ips/10.0.0.1 | jq .
+    curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/ips/10.0.0.1 | jq .
 
     # Trigger scan
     curl -X POST http://localhost:8000/api/scan \
+      -H "Authorization: Bearer $TOKEN" \
       -H "Content-Type: application/json" \
       -d '{"group": "infra"}' | jq .
     ```
@@ -303,26 +309,31 @@ curl -X POST http://localhost:8000/api/scan \
 
     BASE = "http://localhost:8000"
 
+    # Get a token (skip if LDAP_ENABLED=false and using dev mode)
+    resp = requests.post(f"{BASE}/token", data={"username": "jsmith", "password": "secret123"})
+    token = resp.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
     # Health check
     requests.get(f"{BASE}/health").json()
     # {'status': 'ok'}
 
     # List groups
-    groups = requests.get(f"{BASE}/api/groups").json()
+    groups = requests.get(f"{BASE}/api/groups", headers=headers).json()
     for g in groups:
         print(f"{g['name']}: threshold={g['miss_threshold']}, quarantine={g['quarantine_hours']}h")
 
     # Get available IPs
-    resp = requests.get(f"{BASE}/api/available", params={"group": "infra", "count": 3})
+    resp = requests.get(f"{BASE}/api/available", params={"group": "infra", "count": 3}, headers=headers)
     ips = resp.json()["available_ips"]
     print(f"Available: {ips}")
 
     # Get IP status
-    ip_info = requests.get(f"{BASE}/api/ips/10.0.0.1").json()
+    ip_info = requests.get(f"{BASE}/api/ips/10.0.0.1", headers=headers).json()
     print(f"Status: {ip_info['status']}, misses: {ip_info['consecutive_misses']}")
 
     # Trigger scan
-    result = requests.post(f"{BASE}/api/scan", json={"group": "infra"}).json()
+    result = requests.post(f"{BASE}/api/scan", json={"group": "infra"}, headers=headers).json()
     print(f"Scanned {result['scanned']}: {result['active']} active, {result['uncertain']} uncertain")
     ```
 
@@ -331,15 +342,24 @@ curl -X POST http://localhost:8000/api/scan \
     ```javascript
     const BASE = "http://localhost:8000";
 
+    // Get a token (skip if LDAP_ENABLED=false and using dev mode)
+    const tokenResp = await fetch(`${BASE}/token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "username=jsmith&password=secret123",
+    });
+    const { access_token } = await tokenResp.json();
+    const headers = { Authorization: `Bearer ${access_token}` };
+
     // Get available IPs
-    const resp = await fetch(`${BASE}/api/available?group=infra&count=3`);
+    const resp = await fetch(`${BASE}/api/available?group=infra&count=3`, { headers });
     const { available_ips } = await resp.json();
     console.log("Available:", available_ips);
 
     // Trigger scan
     const result = await fetch(`${BASE}/api/scan`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { ...headers, "Content-Type": "application/json" },
       body: JSON.stringify({ group: "infra" }),
     }).then(r => r.json());
     console.log(`Scanned ${result.scanned}: ${result.active} active`);
@@ -350,13 +370,17 @@ curl -X POST http://localhost:8000/api/scan \
     ```powershell
     $base = "http://localhost:8000"
 
+    # Get a token (skip if LDAP_ENABLED=false and using dev mode)
+    $tokenResp = Invoke-RestMethod "$base/token" -Method POST -Body "username=jsmith&password=secret123" -ContentType "application/x-www-form-urlencoded"
+    $headers = @{ Authorization = "Bearer $($tokenResp.access_token)" }
+
     # Get available IPs
-    $ips = Invoke-RestMethod "$base/api/available?group=infra&count=3"
+    $ips = Invoke-RestMethod "$base/api/available?group=infra&count=3" -Headers $headers
     $ips.available_ips
 
     # Trigger scan
     $body = @{ group = "infra" } | ConvertTo-Json
-    Invoke-RestMethod -Uri "$base/api/scan" -Method POST -Body $body -ContentType "application/json"
+    Invoke-RestMethod -Uri "$base/api/scan" -Method POST -Body $body -ContentType "application/json" -Headers $headers
     ```
 
 ---
@@ -366,8 +390,20 @@ curl -X POST http://localhost:8000/api/scan \
 ### Terraform
 
 ```hcl
+data "http" "token" {
+  url             = "http://ns-lite:8000/token"
+  method          = "POST"
+  request_headers = {
+    "Content-Type" = "application/x-www-form-urlencoded"
+  }
+  request_body = "username=${var.ns_lite_user}&password=${var.ns_lite_pass}"
+}
+
 data "http" "available_ips" {
   url = "http://ns-lite:8000/api/available?group=infra&count=3"
+  request_headers = {
+    "Authorization" = "Bearer ${jsondecode(data.http.token.body).access_token}"
+  }
 }
 
 locals {
@@ -390,9 +426,22 @@ resource "aws_instance" "nodes" {
 ### Ansible
 
 ```yaml
+- name: Get token from ns-lite
+  ansible.builtin.uri:
+    url: "http://ns-lite:8000/token"
+    method: POST
+    body_format: form-urlencoded
+    body:
+      username: "{{ ns_lite_user }}"
+      password: "{{ ns_lite_pass }}"
+    status_code: 200
+  register: token_resp
+
 - name: Get available IPs from ns-lite
   ansible.builtin.uri:
     url: "http://ns-lite:8000/api/available?group=database&count=2"
+    headers:
+      Authorization: "Bearer {{ token_resp.json.access_token }}"
     return_content: yes
   register: ns_lite
 
@@ -405,14 +454,24 @@ resource "aws_instance" "nodes" {
 
 ```yaml
 # GitHub Actions example
+- name: Get ns-lite token
+  run: |
+    TOKEN=$(curl -s -X POST http://ns-lite:8000/token \
+      -d "username=${{ secrets.NS_LITE_USER }}&password=${{ secrets.NS_LITE_PASS }}" \
+      | jq -r '.access_token')
+    echo "NS_LITE_TOKEN=$TOKEN" >> $GITHUB_ENV
+
 - name: Get available IPs
   run: |
-    IPS=$(curl -s "http://ns-lite:8000/api/available?group=staging&count=2" | jq -r '.available_ips[]')
+    IPS=$(curl -s -H "Authorization: Bearer $NS_LITE_TOKEN" \
+      "http://ns-lite:8000/api/available?group=staging&count=2" \
+      | jq -r '.available_ips[]')
     echo "IPS=$IPS" >> $GITHUB_ENV
 
 - name: Trigger scan after deployment
   run: |
     curl -X POST http://ns-lite:8000/api/scan \
+      -H "Authorization: Bearer $NS_LITE_TOKEN" \
       -H "Content-Type: application/json" \
       -d '{"group": "staging"}'
 ```
