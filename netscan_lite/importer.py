@@ -53,7 +53,7 @@ def read_xlsx(file_path: Path) -> List[dict]:
     return rows
 
 
-def import_file(file_path: Path, group_name: Optional[str] = None, session: Session) -> dict:
+def import_file(file_path: Path, session: Session, group_name: Optional[str] = None) -> dict:
     """Import IPs from CSV or XLSX file.
 
     Expected columns: ip (required), hostname (optional), group (optional)

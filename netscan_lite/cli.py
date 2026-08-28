@@ -32,7 +32,7 @@ def import_cmd(file_path: str, group: Optional[str]):
     from netscan_lite.importer import import_file
 
     with Session(engine) as session:
-        stats = import_file(Path(file_path), group, session)
+        stats = import_file(Path(file_path), session, group)
 
     click.echo(f"Imported: {stats['imported']}")
     click.echo(f"Skipped: {stats['skipped']}")
