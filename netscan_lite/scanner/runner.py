@@ -50,7 +50,6 @@ class HostProbeResult:
     mac_address: Optional[str] = None
     mac_vendor: Optional[str] = None
     open_ports: List[PortInfo] = field(default_factory=list)
-    raw_extra: Dict[str, Any] = field(default_factory=dict)
     scanned_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
@@ -215,7 +214,6 @@ class NmapScanner:
                 mac_address=mac_address,
                 mac_vendor=mac_vendor,
                 open_ports=open_ports,
-                raw_extra={"state": state, "reason": reason},
             )
 
         return results

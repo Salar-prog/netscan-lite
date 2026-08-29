@@ -1,6 +1,35 @@
+import logging
 import secrets
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
+
+_SECRET_DIR = Path.home() / ".ns-lite"
+_SECRET_FILE = _SECRET_DIR / "jwt-secret"
+
+
+def _resolve_jwt_secret() -> str:
+    """Resolve JWT secret: env var > file > generate and persist."""
+    # Check if explicitly set via env (pydantic-settings handles this before we're called)
+    if _SECRET_FILE.exists():
+        try:
+            return _SECRET_FILE.read_text().strip()
+        except OSError:
+            logger.warning("Could not read %s, generating new secret", _SECRET_FILE)
+
+    # Generate and persist
+    secret = secrets.token_urlsafe(32)
+    try:
+        _SECRET_DIR.mkdir(parents=True, exist_ok=True)
+        _SECRET_FILE.write_text(secret)
+        _SECRET_FILE.chmod(0o600)
+        logger.info("Generated JWT secret, persisted to %s", _SECRET_FILE)
+    except OSError:
+        logger.warning("Could not persist JWT secret to %s — secret will change on restart", _SECRET_FILE)
+
+    return secret
 
 
 class Settings(BaseSettings):
@@ -23,6 +52,7 @@ class Settings(BaseSettings):
 
     # LDAP authentication
     LDAP_ENABLED: bool = False
+    DEV_AUTH_ENABLED: bool = False
     LDAP_SERVER: str = "ldap://localhost"
     LDAP_BIND_DN: str = "cn=admin,dc=example,dc=com"
     LDAP_BIND_PASSWORD: str = ""
@@ -31,8 +61,12 @@ class Settings(BaseSettings):
     LDAP_STARTTLS: bool = False
 
     # JWT
-    JWT_SECRET_KEY: str = secrets.token_urlsafe(32)
+    JWT_SECRET_KEY: str = ""
     JWT_EXPIRY_HOURS: int = 24
+
+    def model_post_init(self, __context: object) -> None:
+        if not self.JWT_SECRET_KEY:
+            object.__setattr__(self, "JWT_SECRET_KEY", _resolve_jwt_secret())
 
 
 settings = Settings()

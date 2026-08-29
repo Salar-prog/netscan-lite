@@ -27,6 +27,11 @@ router = APIRouter(prefix="/api")
 ws_router = APIRouter()
 
 
+def _escape_like(value: str) -> str:
+    """Escape special characters for SQL LIKE patterns."""
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 class AvailableResponse(BaseModel):
     available_ips: List[str]
     count: int
@@ -252,7 +257,8 @@ def list_ips(
             raise HTTPException(status_code=400, detail=f"Invalid status: {status_filter}")
 
     if search:
-        search_pattern = f"%{search}%"
+        safe = _escape_like(search)
+        search_pattern = f"%{safe}%"
         query = query.where((IPAddress.ip.like(search_pattern)) | (IPAddress.hostname.like(search_pattern)))
 
     total = len(session.exec(query).all())
@@ -563,6 +569,9 @@ async def ws_scan(websocket: WebSocket):
         if payload is None:
             await websocket.close(code=4001, reason="Invalid or expired token")
             return
+    elif not settings.DEV_AUTH_ENABLED:
+        await websocket.close(code=4001, reason="Dev auth disabled")
+        return
     # Dev mode: any token accepted
 
     try:

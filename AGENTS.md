@@ -69,8 +69,6 @@ netscan_lite/
   __init__.py       # package marker + version
 ```
 
-Note: `netscan_lite/scanner/cidr.py` exists on disk but is dead code (broken imports from `netscan.config`, references nonexistent `settings.MAX_SCAN_PREFIX_LENGTH`). Do not import it.
-
 ## Testing
 
 - Tests use in-memory SQLite (override `DATABASE_URL` in fixtures)

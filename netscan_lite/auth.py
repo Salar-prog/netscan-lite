@@ -100,7 +100,13 @@ def decode_access_token(token: str) -> Optional[dict]:
 async def get_current_user(token: str = Depends(oauth2_scheme)) -> UserPayload:
     """FastAPI dependency: validates JWT and returns the current user."""
     if not settings.LDAP_ENABLED:
-        # Dev mode: accept any token as valid username
+        if not settings.DEV_AUTH_ENABLED:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Dev auth disabled. Set DEV_AUTH_ENABLED=true or LDAP_ENABLED=true.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        logger.warning("Dev auth enabled — accepting any token as valid. Do not use in production.")
         return UserPayload(username=token, dn=f"cn={token},dev", groups=["dev-admin"])
 
     payload = decode_access_token(token)

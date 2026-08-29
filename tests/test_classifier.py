@@ -96,7 +96,6 @@ def test_new_ip_first_scan_becomes_active(session: Session):
     assert outcome.consecutive_misses == 0
     assert outcome.hostname == "web-01"
     assert outcome.mac_address == "AA:BB:CC:DD:EE:FF"
-    assert outcome.event_type is not None  # DISCOVERED
 
 
 def test_uncertain_ip_responds_becomes_active(session: Session):

@@ -121,7 +121,6 @@ def import_file(file_path: Path, session: Session, group_name: Optional[str] = N
             ip=ip_str,
             status=IPStatus.AVAILABLE_CANDIDATE,
             hostname=hostname,
-            custom_metadata={"imported_from": file_path.name, "row": i},
         )
         session.add(ip_obj)
         stats["imported"] += 1

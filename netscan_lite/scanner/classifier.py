@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from netscan_lite.models import EventType, Group, IPAddress, IPStatus
+from netscan_lite.models import Group, IPAddress, IPStatus
 from netscan_lite.scanner.runner import HostProbeResult, ports_to_dicts
 
 
@@ -23,8 +23,6 @@ class ClassificationOutcome:
     first_seen_at: Optional[datetime]
     last_seen_at: Optional[datetime]
     last_scanned_at: datetime
-    event_type: Optional[EventType] = None
-    event_details: Optional[Dict[str, Any]] = None
 
 
 class StateClassifier:
@@ -64,8 +62,6 @@ class StateClassifier:
                 first_seen_at=existing.first_seen_at,
                 last_seen_at=last_seen,
                 last_scanned_at=last_scanned_at,
-                event_type=None,
-                event_details={},
             )
 
         # Case 2: Positive Probe Response (Host is UP)
@@ -73,12 +69,6 @@ class StateClassifier:
             new_status = IPStatus.ACTIVE_DETECTED
             state_changed = old_status != IPStatus.ACTIVE_DETECTED
             first_seen = existing.first_seen_at if existing and existing.first_seen_at else now
-
-            event_type = None
-            if old_status is None:
-                event_type = EventType.DISCOVERED
-            elif state_changed:
-                event_type = EventType.STATE_CHANGE
 
             return ClassificationOutcome(
                 ip=ip,
@@ -94,8 +84,6 @@ class StateClassifier:
                 first_seen_at=first_seen,
                 last_seen_at=now,
                 last_scanned_at=last_scanned_at,
-                event_type=event_type,
-                event_details={"reason": probe.status_reason, "method": probe.discovery_method},
             )
 
         # Case 3: Negative Probe (Host is DOWN or UNRESPONSIVE)
@@ -123,8 +111,6 @@ class StateClassifier:
                 first_seen_at=first_seen,
                 last_seen_at=last_seen,
                 last_scanned_at=last_scanned_at,
-                event_type=EventType.STATE_CHANGE,
-                event_details={"reason": "host_unresponsive_entered_uncertain"},
             )
 
         if old_status == IPStatus.UNCERTAIN_FIREWALLED:
@@ -152,10 +138,6 @@ class StateClassifier:
                     first_seen_at=first_seen,
                     last_seen_at=last_seen,
                     last_scanned_at=last_scanned_at,
-                    event_type=EventType.STATE_CHANGE,
-                    event_details={
-                        "reason": f"quarantine_completed: {miss_count} misses, {hours_in_uncertain:.1f}h elapsed"
-                    },
                 )
             else:
                 return ClassificationOutcome(
@@ -172,8 +154,6 @@ class StateClassifier:
                     first_seen_at=first_seen,
                     last_seen_at=last_seen,
                     last_scanned_at=last_scanned_at,
-                    event_type=None,
-                    event_details={},
                 )
 
         return ClassificationOutcome(
@@ -190,6 +170,4 @@ class StateClassifier:
             first_seen_at=first_seen,
             last_seen_at=last_seen,
             last_scanned_at=last_scanned_at,
-            event_type=EventType.DISCOVERED if old_status is None else None,
-            event_details={"reason": "unseen_or_available"},
         )

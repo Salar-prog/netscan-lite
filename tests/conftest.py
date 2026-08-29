@@ -4,6 +4,7 @@ import pytest
 from sqlmodel import Session, SQLModel, create_engine
 from sqlmodel.pool import StaticPool
 
+from netscan_lite.config import settings
 from netscan_lite.db import get_session
 
 
@@ -71,6 +72,8 @@ def _isolate_cli_db(monkeypatch):
     SQLModel.metadata.create_all(_cli_engine)
     monkeypatch.setattr("netscan_lite.db.engine", _cli_engine)
     monkeypatch.setattr("netscan_lite.cli.engine", _cli_engine)
+    # Enable dev auth for tests (LDAP_ENABLED=false by default)
+    monkeypatch.setattr(settings, "DEV_AUTH_ENABLED", True)
 
 
 @pytest.fixture(name="cli_session")

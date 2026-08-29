@@ -18,11 +18,6 @@ class IPStatus(str, Enum):
     UNCERTAIN_FIREWALLED = "UNCERTAIN_FIREWALLED"
 
 
-class EventType(str, Enum):
-    DISCOVERED = "DISCOVERED"
-    STATE_CHANGE = "STATE_CHANGE"
-
-
 # ---------------------------------------------------------------------------
 # Database Tables
 # ---------------------------------------------------------------------------
@@ -59,7 +54,6 @@ class IPAddress(SQLModel, table=True):
     first_seen_at: Optional[datetime] = None
     last_seen_at: Optional[datetime] = None
     last_scanned_at: Optional[datetime] = None
-    custom_metadata: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
 
