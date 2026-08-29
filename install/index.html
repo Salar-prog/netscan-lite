@@ -286,6 +286,25 @@
   
   
     <li class="md-tabs__item">
+      <a href="../dashboard/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Dashboard
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
       <a href="../cli/" class="md-tabs__link">
         
   
@@ -487,6 +506,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#dashboard-build-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dashboard Build (optional)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#nmap-setup" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -553,6 +583,33 @@
     
   
     Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dashboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dashboard
   
 
     
@@ -684,6 +741,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#dashboard-build-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dashboard Build (optional)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#nmap-setup" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -775,20 +843,31 @@
 </div>
 </div>
 </div>
+<h2 id="dashboard-build-optional">Dashboard Build (optional)</h2>
+<p>The React dashboard is pre-built in the <code>netscan_lite/static/</code> directory. To rebuild it from source:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nb">cd</span><span class="w"> </span>netscan_lite/dashboard
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>npm<span class="w"> </span>install
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>npm<span class="w"> </span>run<span class="w"> </span>build
+</code></pre></div>
+<p>This outputs to <code>netscan_lite/static/</code> which is served automatically by <code>ns-lite serve</code>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The dashboard build requires Node.js 18+. The pre-built files are included in the PyPI package.</p>
+</div>
 <h2 id="nmap-setup">nmap Setup</h2>
 <p>ns-lite uses nmap for network scanning. Install it for your platform:</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="2:4"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><input id="__tabbed_2_3" name="__tabbed_2" type="radio" /><input id="__tabbed_2_4" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Debian/Ubuntu</label><label for="__tabbed_2_2">RHEL/Fedora</label><label for="__tabbed_2_3">macOS</label><label for="__tabbed_2_4">Windows</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>sudo<span class="w"> </span>apt<span class="w"> </span>update<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>sudo<span class="w"> </span>apt<span class="w"> </span>install<span class="w"> </span>nmap
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>sudo<span class="w"> </span>apt<span class="w"> </span>update<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>sudo<span class="w"> </span>apt<span class="w"> </span>install<span class="w"> </span>nmap
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>sudo<span class="w"> </span>dnf<span class="w"> </span>install<span class="w"> </span>nmap
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>sudo<span class="w"> </span>dnf<span class="w"> </span>install<span class="w"> </span>nmap
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>brew<span class="w"> </span>install<span class="w"> </span>nmap
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>brew<span class="w"> </span>install<span class="w"> </span>nmap
 </code></pre></div>
 </div>
 <div class="tabbed-block">
@@ -800,7 +879,7 @@
 <div class="admonition tip">
 <p class="admonition-title">Running as root</p>
 <p>For ARP and ICMP scanning, run as root or with <code>CAP_NET_RAW</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>sudo<span class="w"> </span>ns-lite<span class="w"> </span>scan<span class="w"> </span>--group<span class="w"> </span>infra
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>sudo<span class="w"> </span>ns-lite<span class="w"> </span>scan<span class="w"> </span>--group<span class="w"> </span>infra
 </code></pre></div>
 <p>Without privileges, ns-lite falls back to TCP connect scans — still works, just less stealthy.</p>
 </div>
@@ -823,15 +902,15 @@
 </tbody>
 </table>
 <h2 id="verify-installation">Verify Installation</h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>ns-lite<span class="w"> </span>--version
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>nmap<span class="w"> </span>--version
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>ns-lite<span class="w"> </span>--version
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>nmap<span class="w"> </span>--version
 </code></pre></div>
 <h2 id="docker-optional">Docker (optional)</h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Build</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>docker<span class="w"> </span>build<span class="w"> </span>-t<span class="w"> </span>ns-lite<span class="w"> </span>.
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="c1"># Run</span>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>ns-lite<span class="w"> </span>scan<span class="w"> </span>--group<span class="w"> </span>infra
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># Build</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>docker<span class="w"> </span>build<span class="w"> </span>-t<span class="w"> </span>ns-lite<span class="w"> </span>.
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="c1"># Run</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>ns-lite<span class="w"> </span>scan<span class="w"> </span>--group<span class="w"> </span>infra
 </code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>

@@ -16,7 +16,7 @@
         <link rel="prev" href="../install/">
       
       
-        <link rel="next" href="../cli/">
+        <link rel="next" href="../dashboard/">
       
       
         
@@ -274,6 +274,25 @@
     
   
   Quick Start
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../dashboard/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Dashboard
 
       </a>
     </li>
@@ -558,6 +577,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#using-the-dashboard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using the Dashboard
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#next-steps" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -572,6 +602,33 @@
   
 </nav>
       
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dashboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dashboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -739,6 +796,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#using-the-dashboard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using the Dashboard
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#next-steps" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -854,6 +922,20 @@
 <a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"group": "infra"}'</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>.
 </code></pre></div>
+<h2 id="using-the-dashboard">Using the Dashboard</h2>
+<p>ns-lite includes a React dashboard for visual monitoring. Start the server and open your browser:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>ns-lite<span class="w"> </span>serve
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="c1"># Open http://localhost:8000 in your browser</span>
+</code></pre></div>
+<p>The dashboard provides:</p>
+<ul>
+<li><strong>Overview</strong> — status counts, group summary, last scan time</li>
+<li><strong>IP List</strong> — filterable, searchable table with pagination</li>
+<li><strong>IP Detail</strong> — full status, scan action, reserve/release</li>
+<li><strong>Groups</strong> — edit quarantine settings per group</li>
+<li><strong>Scan</strong> — trigger scans with live WebSocket progress</li>
+<li><strong>Import</strong> — drag &amp; drop CSV/XLSX with preview and validation</li>
+</ul>
 <h2 id="next-steps">Next Steps</h2>
 <ul>
 <li><a href="../cli/">CLI Reference</a> — all available commands and flags</li>
