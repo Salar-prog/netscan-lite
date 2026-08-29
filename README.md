@@ -535,6 +535,7 @@ Environment variables or `.env` file:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `LDAP_ENABLED` | `false` | Enable LDAP auth |
+| `DEV_AUTH_ENABLED` | `false` | Allow dev-mode auth when `LDAP_ENABLED=false` |
 | `LDAP_SERVER` | `ldap://localhost` | LDAP server URL |
 | `LDAP_BIND_DN` | `cn=admin,dc=example,dc=com` | Service account DN |
 | `LDAP_BIND_PASSWORD` | (empty) | Service account password |

@@ -60,10 +60,11 @@ ns-lite available --count 3
 
 ### LDAP mode vs dev mode
 
-| `LDAP_ENABLED` | Behavior |
-|----------------|----------|
-| `false` (default) | Any token is accepted. No LDAP server needed. Good for local dev. |
-| `true` | Tokens are validated against your LDAP server. Requires LDAP connectivity. |
+| `LDAP_ENABLED` | `DEV_AUTH_ENABLED` | Behavior |
+|-----------------|-------------------|----------|
+| `false` | `false` | All auth rejected (401). Locked down. |
+| `false` | `true` | Dev mode — any token accepted. No LDAP needed. Startup warning logged. |
+| `true` | any | Tokens validated against LDAP server. Requires LDAP connectivity. |
 
 ## Endpoints Overview
 

@@ -19,6 +19,7 @@ ns-lite is configured via environment variables or a `.env` file in your working
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `LDAP_ENABLED` | `false` | Enable LDAP authentication |
+| `DEV_AUTH_ENABLED` | `false` | Allow dev-mode auth when `LDAP_ENABLED=false` (any token accepted) |
 | `LDAP_SERVER` | `ldap://localhost` | LDAP server URL |
 | `LDAP_BIND_DN` | `cn=admin,dc=example,dc=com` | Service account DN for searching users |
 | `LDAP_BIND_PASSWORD` | (empty) | Service account password |

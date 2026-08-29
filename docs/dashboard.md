@@ -13,7 +13,7 @@ ns-lite serve
 
 !!! note
 
-    The dashboard requires a valid JWT token. In dev mode (`LDAP_ENABLED=false`, the default), any username/password combination is accepted.
+    The dashboard requires a valid JWT token. In dev mode (`LDAP_ENABLED=false` and `DEV_AUTH_ENABLED=true`), any username/password combination is accepted.
 
 ## Features
 
