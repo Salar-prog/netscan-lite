@@ -86,6 +86,24 @@ curl -X POST http://localhost:8000/api/scan \
   -d '{"group": "infra"}' | jq .
 ```
 
+## Using the Dashboard
+
+ns-lite includes a React dashboard for visual monitoring. Start the server and open your browser:
+
+```bash
+ns-lite serve
+# Open http://localhost:8000 in your browser
+```
+
+The dashboard provides:
+
+- **Overview** — status counts, group summary, last scan time
+- **IP List** — filterable, searchable table with pagination
+- **IP Detail** — full status, scan action, reserve/release
+- **Groups** — edit quarantine settings per group
+- **Scan** — trigger scans with live WebSocket progress
+- **Import** — drag & drop CSV/XLSX with preview and validation
+
 ## Next Steps
 
 - [CLI Reference](cli.md) — all available commands and flags

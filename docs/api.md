@@ -71,10 +71,19 @@ ns-lite available --count 3
 |--------|------|-------------|
 | `POST` | `/token` | Login and get JWT token |
 | `GET` | `/health` | Health check (no auth required) |
+| `GET` | `/api/stats` | Dashboard overview stats |
 | `GET` | `/api/groups` | List all groups |
+| `GET` | `/api/groups-detail` | List groups with IP counts |
+| `PUT` | `/api/groups/{id}` | Update group settings |
+| `DELETE` | `/api/groups/{id}` | Delete group and its IPs |
 | `GET` | `/api/available` | Get available IPs |
+| `GET` | `/api/ips` | List IPs (paginated) |
 | `GET` | `/api/ips/{ip}` | Get IP status |
+| `POST` | `/api/ips/{ip}/scan` | Scan a single IP |
+| `PUT` | `/api/ips/{ip}/reserve` | Reserve or release an IP |
 | `POST` | `/api/scan` | Trigger a scan |
+| `POST` | `/api/import` | Import IPs from CSV/XLSX |
+| `WS` | `/ws/scan` | Real-time scan progress |
 
 ---
 
@@ -270,6 +279,296 @@ curl -X POST http://localhost:8000/api/scan \
 | `404` | `Group 'nonexistent' not found` |
 | `502` | `Scan failed: Nmap scan timed out after 300 seconds for 50 targets` |
 | `422` | Validation error (e.g., invalid IPv4 address) |
+
+---
+
+## Dashboard Stats
+
+```
+GET /api/stats
+```
+
+Returns aggregate counts for the dashboard overview.
+
+### Response
+
+```json
+{
+  "total_ips": 42,
+  "active": 28,
+  "uncertain": 8,
+  "available": 4,
+  "reserved": 2,
+  "groups": 3,
+  "last_scan": "2026-08-28 12:00:00"
+}
+```
+
+---
+
+## List Groups (with IP counts)
+
+```
+GET /api/groups-detail
+```
+
+Returns all groups with their IP counts. Used by the dashboard for the group table.
+
+### Response
+
+```json
+[
+  {
+    "id": "a1b2c3d4-...",
+    "name": "infra",
+    "description": "Infrastructure servers",
+    "miss_threshold": 3,
+    "quarantine_hours": 48,
+    "ip_count": 15
+  }
+]
+```
+
+---
+
+## Update Group
+
+```
+PUT /api/groups/{group_id}
+Content-Type: application/json
+```
+
+Update quarantine settings for a group.
+
+### Request Body
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `miss_threshold` | int? | Consecutive misses before uncertain |
+| `quarantine_hours` | int? | Hours in UNCERTAIN before AVAILABLE |
+| `description` | string? | Group description |
+
+### Response
+
+Returns the updated `GroupDetailResponse`.
+
+### Errors
+
+| Status | Detail |
+|--------|--------|
+| `400` | `Invalid group ID` |
+| `404` | `Group '...' not found` |
+
+---
+
+## Delete Group
+
+```
+DELETE /api/groups/{group_id}
+```
+
+Deletes a group and all its IPs. Returns `204 No Content` on success.
+
+### Errors
+
+| Status | Detail |
+|--------|--------|
+| `400` | `Invalid group ID` |
+| `404` | `Group '...' not found` |
+
+---
+
+## List IPs
+
+```
+GET /api/ips?group=infra&status=ACTIVE_DETECTED&search=gateway&page=1&page_size=25
+```
+
+Returns a paginated list of all IPs with optional filters.
+
+### Query Parameters
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `group` | string | all | Filter by group name |
+| `status` | string | all | Filter by IP status |
+| `search` | string | | Search by IP or hostname |
+| `page` | int | 1 | Page number |
+| `page_size` | int | 25 | Results per page (max: 100) |
+
+### Response
+
+```json
+{
+  "ips": [
+    {
+      "ip": "10.0.0.1",
+      "status": "ACTIVE_DETECTED",
+      "hostname": "gateway-01",
+      "mac_address": "aa:bb:cc:dd:ee:ff",
+      "mac_vendor": "Cisco Systems",
+      "group_name": "infra",
+      "consecutive_misses": 0,
+      "last_seen_at": "2026-08-28T12:00:00",
+      "last_scanned_at": "2026-08-28T12:00:00"
+    }
+  ],
+  "total": 42,
+  "page": 1,
+  "page_size": 25
+}
+```
+
+---
+
+## Scan Single IP
+
+```
+POST /api/ips/{ip_address}/scan
+```
+
+Scans a single IP and updates its status.
+
+### Response
+
+```json
+{
+  "message": "Scanned 1 IP(s)",
+  "scanned": 1,
+  "active": 1,
+  "uncertain": 0,
+  "available": 0
+}
+```
+
+### Errors
+
+| Status | Detail |
+|--------|--------|
+| `404` | `IP '...' not found` |
+| `502` | `Scan failed: ...` |
+
+---
+
+## Reserve or Release IP
+
+```
+PUT /api/ips/{ip_address}/reserve
+Content-Type: application/json
+```
+
+Reserve or release an IP address.
+
+### Request Body
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `status` | string | `ASSIGNED_RESERVED` to reserve, `AVAILABLE_CANDIDATE` to release |
+
+### Response
+
+```json
+{
+  "ip": "10.0.0.1",
+  "status": "ASSIGNED_RESERVED",
+  "message": "IP 10.0.0.1 is now ASSIGNED_RESERVED"
+}
+```
+
+### Errors
+
+| Status | Detail |
+|--------|--------|
+| `404` | `IP '...' not found` |
+| `422` | `Status must be one of: ASSIGNED_RESERVED, AVAILABLE_CANDIDATE` |
+
+---
+
+## Import IPs
+
+```
+POST /api/import?group=infra
+Content-Type: multipart/form-data
+```
+
+Import IPs from a CSV or XLSX file.
+
+### Query Parameters
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `group` | string | from file | Override group for all imported IPs |
+
+### Request Body
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `file` | file | CSV or XLSX file |
+
+### Response
+
+```json
+{
+  "imported": 10,
+  "skipped": 2,
+  "errors": ["Invalid IPv4 address: not-an-ip"]
+}
+```
+
+### Errors
+
+| Status | Detail |
+|--------|--------|
+| `400` | `Only .csv and .xlsx files are supported` |
+
+---
+
+## WebSocket — Real-time Scan Progress
+
+```
+ws://localhost:8000/ws/scan?token=<jwt>
+```
+
+Connect via WebSocket for real-time scan progress. Authenticate via `token` query parameter.
+
+### Client sends
+
+```json
+{"group": "infra"}
+```
+
+or
+
+```json
+{"ips": ["10.0.0.1", "10.0.0.5"]}
+```
+
+### Server sends
+
+**Progress** (per IP):
+
+```json
+{"type": "progress", "ip": "10.0.0.1", "status": "scanning"}
+{"type": "progress", "ip": "10.0.0.1", "status": "done", "result": "ACTIVE_DETECTED"}
+```
+
+**Complete:**
+
+```json
+{"type": "complete", "scanned": 5, "active": 3, "uncertain": 1, "available": 1}
+```
+
+**Error:**
+
+```json
+{"type": "error", "detail": "No IPs to scan"}
+```
+
+### Close codes
+
+| Code | Reason |
+|------|--------|
+| `4001` | Invalid or expired token |
 
 ---
 

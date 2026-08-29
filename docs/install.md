@@ -32,6 +32,22 @@
 
     Installs everything: XLSX support, test dependencies, and MkDocs for docs.
 
+## Dashboard Build (optional)
+
+The React dashboard is pre-built in the `netscan_lite/static/` directory. To rebuild it from source:
+
+```bash
+cd netscan_lite/dashboard
+npm install
+npm run build
+```
+
+This outputs to `netscan_lite/static/` which is served automatically by `ns-lite serve`.
+
+!!! note
+
+    The dashboard build requires Node.js 18+. The pre-built files are included in the PyPI package.
+
 ## nmap Setup
 
 ns-lite uses nmap for network scanning. Install it for your platform:

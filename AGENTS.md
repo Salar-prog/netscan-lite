@@ -6,9 +6,8 @@ Guidance for AI coding agents and human collaborators working on ns-lite.
 
 ns-lite is a lightweight IP discovery tool with quarantine logic, extracted from NetScan. It scans specific IPs (from CSV/XLSX files) and tracks their availability over time.
 
-- **Stack:** Python 3.10+, FastAPI, SQLModel (SQLite), Click CLI
+- **Stack:** Python 3.10+, FastAPI, SQLModel (SQLite), Click CLI, React dashboard
 - **No scheduler** — scans are on-demand only
-- **No dashboard** — API + CLI interface
 - **CLI binary:** `ns-lite`
 - **Docs site:** MkDocs Material at https://salar-prog.github.io/netscan-lite/
 
@@ -59,8 +58,14 @@ netscan_lite/
   auth.py           # LDAP auth, JWT tokens, FastAPI dependencies
   importer.py       # CSV/XLSX parser
   cli.py            # click CLI (ns-lite binary)
-  api.py            # FastAPI REST endpoints (router)
-  main.py           # app entrypoint
+  api.py            # FastAPI REST endpoints (router + WebSocket)
+  main.py           # app entrypoint, static file serving
+  static/           # built React dashboard (gitignored)
+  dashboard/        # React SPA source (Vite + Tailwind)
+    src/
+      api.ts        # fetch wrapper + WebSocket client
+      App.tsx       # router with protected routes
+      components/   # Login, Dashboard, IpList, IpDetail, GroupManager, ScanTrigger, Import
   __init__.py       # package marker + version
 ```
 
@@ -71,7 +76,7 @@ Note: `netscan_lite/scanner/cidr.py` exists on disk but is dead code (broken imp
 - Tests use in-memory SQLite (override `DATABASE_URL` in fixtures)
 - Run with `pytest -v`
 - No nmap required for tests (mock scanner)
-- 57 tests covering: API, CLI, classifier, importer, scanner runner
+- 84 tests covering: API, CLI, classifier, importer, scanner runner, dashboard API
 
 ## Scanner Behavior
 
@@ -87,14 +92,23 @@ Note: `netscan_lite/scanner/cidr.py` exists on disk but is dead code (broken imp
 |--------|------|-------------|
 | `POST` | `/token` | Login and get JWT token |
 | `GET` | `/health` | Health check (no auth required) |
+| `GET` | `/api/stats` | Dashboard overview stats |
 | `GET` | `/api/groups` | List all groups with quarantine settings |
+| `GET` | `/api/groups-detail` | List groups with IP counts |
+| `PUT` | `/api/groups/{id}` | Update group quarantine settings |
+| `DELETE` | `/api/groups/{id}` | Delete group and its IPs |
 | `GET` | `/api/available` | Get available IPs (params: `group`, `count`) |
+| `GET` | `/api/ips` | List IPs (paginated, filterable) |
 | `GET` | `/api/ips/{ip}` | Get IP status with full details |
+| `POST` | `/api/ips/{ip}/scan` | Scan a single IP |
+| `PUT` | `/api/ips/{ip}/reserve` | Reserve or release an IP |
 | `POST` | `/api/scan` | Trigger scan (body: `group` or `ips`) |
+| `POST` | `/api/import` | Import IPs from CSV/XLSX |
+| `WS` | `/ws/scan` | Real-time scan progress |
 
 All endpoints except `/health` and `/token` require a valid JWT token in the `Authorization: Bearer <token>` header.
 
-Request/response models are defined in `api.py` (`AvailableResponse`, `ScanRequest`, `ScanResponse`, `GroupResponse`).
+Request/response models are defined in `api.py` (`AvailableResponse`, `ScanRequest`, `ScanResponse`, `GroupResponse`, `StatsResponse`, `ImportResponse`, `IPListResponse`).
 
 ## Known Limitations
 

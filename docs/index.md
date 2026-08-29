@@ -35,7 +35,7 @@ over time, and won't release an IP just because a firewall dropped a ping.
 
 <div class="stat-item" markdown>
 
-<span class="stat-number">57</span>
+<span class="stat-number">84</span>
 <span class="stat-label">Tests</span>
 
 </div>
@@ -127,7 +127,8 @@ REST API for integration.
 
 ### Zero bloat
 
-No dashboard, no scheduler, no database server. SQLite, nmap, and a CLI. That's it.
+No scheduler, no database server. SQLite, nmap, and a CLI. The React dashboard
+is optional — use it or stick to the API.
 
 </div>
 

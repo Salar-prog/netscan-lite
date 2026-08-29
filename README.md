@@ -7,7 +7,7 @@
 
 Lightweight IP discovery with quarantine logic.
 
-Extracted from [NetScan](https://github.com/Salar-prog/netscan) — scans specific IPs from CSV/XLSX files and tracks availability over time. No dashboard, no scheduler, no bloat.
+Extracted from [NetScan](https://github.com/Salar-prog/netscan) — scans specific IPs from CSV/XLSX files and tracks availability over time. Includes a React dashboard for visual monitoring.
 
 ## Features
 
@@ -17,6 +17,7 @@ Extracted from [NetScan](https://github.com/Salar-prog/netscan) — scans specif
 - **Multi-probe detection** — uses ARP, ICMP, and TCP probes to determine host availability
 - **Quarantine logic** — safe availability tracking with two-factor release (miss count + time)
 - **Groups** — organize IPs with per-group quarantine settings
+- **Web dashboard** — real-time IP monitoring, scan triggers, CSV import, group management
 - **CLI + REST API** — use from terminal or integrate with Terraform/CI pipelines
 - **LDAP authentication** — JWT-based API auth backed by LDAP; dev mode skips LDAP entirely
 - **JSON output** — every command supports `--json-output` for automation
@@ -35,6 +36,17 @@ ns-lite scan
 # Get available IPs
 ns-lite available --count 3
 ```
+
+### Dashboard
+
+Start the server and open the dashboard in your browser:
+
+```bash
+ns-lite serve
+# Open http://localhost:8000 in your browser
+```
+
+See [Dashboard Guide](https://salar-prog.github.io/netscan-lite/dashboard/) for details.
 
 ## CLI Commands
 
@@ -87,10 +99,19 @@ ns-lite serve --host 0.0.0.0 --port 9000  # custom bind
 |--------|------|-------------|
 | `POST` | `/token` | Login and get JWT token |
 | `GET` | `/health` | Health check (no auth required) |
+| `GET` | `/api/stats` | Dashboard overview stats |
 | `GET` | `/api/groups` | List all groups |
+| `GET` | `/api/groups-detail` | List groups with IP counts |
+| `PUT` | `/api/groups/{id}` | Update group quarantine settings |
+| `DELETE` | `/api/groups/{id}` | Delete group and its IPs |
 | `GET` | `/api/available` | Get available IPs |
+| `GET` | `/api/ips` | List IPs (paginated, filterable) |
 | `GET` | `/api/ips/{ip}` | Get IP status |
+| `POST` | `/api/ips/{ip}/scan` | Scan a single IP |
+| `PUT` | `/api/ips/{ip}/reserve` | Reserve or release an IP |
 | `POST` | `/api/scan` | Trigger a scan |
+| `POST` | `/api/import` | Import IPs from CSV/XLSX |
+| `WS` | `/ws/scan` | Real-time scan progress |
 
 ---
 
