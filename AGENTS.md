@@ -110,7 +110,7 @@ Request/response models are defined in `api.py` (`AvailableResponse`, `ScanReque
 
 ## Known Limitations
 
-- `ScanJob` model defined in `models.py` but never used — scans return summary dicts, not persisted job records.
+- `POST /scan` is synchronous — blocks until all nmap scans complete. Fine for current scale; would need background jobs for large batches.
 
 ## Code Conventions
 
