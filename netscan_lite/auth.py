@@ -106,6 +106,12 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> UserPayload:
                 detail="Dev auth disabled. Set DEV_AUTH_ENABLED=true or LDAP_ENABLED=true.",
                 headers={"WWW-Authenticate": "Bearer"},
             )
+        if not settings.DEBUG:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Dev auth requires DEBUG=true. Set DEBUG=true for development.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
         logger.warning("Dev auth enabled — accepting any token as valid. Do not use in production.")
         return UserPayload(username=token, dn=f"cn={token},dev", groups=["dev-admin"])
 
