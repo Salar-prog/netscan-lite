@@ -516,6 +516,43 @@ resource "aws_instance" "nodes" {
 
 ---
 
+## Production Deployment
+
+ns-lite supports Docker and bare metal deployment with PostgreSQL for production use.
+
+### Docker Compose (Recommended)
+
+```bash
+# Clone and configure
+git clone https://github.com/Salar-prog/netscan-lite.git
+cd netscan-lite
+cp .env.example .env
+# Edit .env with your settings
+
+# Start with PostgreSQL
+docker compose up -d
+```
+
+### Bare Metal
+
+```bash
+pip install -e ".[xlsx,postgres]"
+
+# Start with multiple workers
+ns-lite serve --host 0.0.0.0 --port 8000 --workers 4
+```
+
+### Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DATABASE_URL` | Yes | PostgreSQL connection string |
+| `LDAP_ENABLED` | Yes | Set to `true` for production |
+| `JWT_SECRET_KEY` | Recommended | Token signing key |
+| `WORKERS` | No | Gunicorn workers (default: 1) |
+
+For full deployment options, see the [Deployment Guide](https://salar-prog.github.io/netscan-lite/deployment/).
+
 ## Configuration
 
 Environment variables or `.env` file:
