@@ -100,14 +100,31 @@ nmap --version
 
 ## Docker (optional)
 
-```bash
-# Build
-docker build -t ns-lite .
+### Build
 
-# Run
-docker run --rm ns-lite scan --group infra
+```bash
+docker build -t ns-lite .
+```
+
+### Run a Scan
+
+```bash
+docker run --rm --net=host ns-lite scan --group infra
+```
+
+### Run the Server
+
+```bash
+docker run -d \
+  -p 8000:8000 \
+  --net=host \
+  -e DATABASE_URL=postgresql://user:pass@localhost/netscan \
+  -e LDAP_ENABLED=true \
+  ns-lite serve
 ```
 
 !!! note
 
     Docker requires `--net=host` or `--privileged` for ARP/ICMP scanning.
+
+For full deployment options, see the [Deployment Guide](deployment.md).
