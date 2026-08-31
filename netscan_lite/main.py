@@ -31,7 +31,13 @@ async def lifespan(app: FastAPI):
     logger.info("Initializing ns-lite database...")
     init_db()
     if not settings.LDAP_ENABLED and settings.DEV_AUTH_ENABLED:
-        logger.warning("DEV_AUTH_ENABLED is true — any token is accepted. Do not use in production.")
+        if settings.DEBUG:
+            logger.warning("DEV_AUTH_ENABLED is true — any token is accepted. Do not use in production.")
+        else:
+            logger.error("DEV_AUTH_ENABLED=true but DEBUG=false — dev auth will be rejected.")
+    warnings = settings.validate_production_config()
+    for w in warnings:
+        logger.warning("Config warning: %s", w)
     logger.info("ns-lite ready")
     yield
     logger.info("ns-lite shutting down")

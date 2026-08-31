@@ -68,5 +68,14 @@ class Settings(BaseSettings):
         if not self.JWT_SECRET_KEY:
             object.__setattr__(self, "JWT_SECRET_KEY", _resolve_jwt_secret())
 
+    def validate_production_config(self) -> list[str]:
+        """Validate config for production use. Returns list of warnings."""
+        warnings = []
+        if self.LDAP_ENABLED and not self.LDAP_BIND_PASSWORD:
+            warnings.append("LDAP_ENABLED=true but LDAP_BIND_PASSWORD is empty")
+        if not self.LDAP_ENABLED and not self.DEV_AUTH_ENABLED and not self.DEBUG:
+            warnings.append("Neither LDAP nor DEV_AUTH enabled — no authentication active")
+        return warnings
+
 
 settings = Settings()
