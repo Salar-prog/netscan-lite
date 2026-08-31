@@ -134,6 +134,34 @@ netscan_lite/
 - CI tests Python 3.10–3.13
 - pytest config: `asyncio_mode = "auto"` in `pyproject.toml`
 
+## Database Migrations
+
+ns-lite uses Alembic for schema migrations. SQLite is the default for local dev; PostgreSQL for production.
+
+### Creating a migration
+
+After changing models in `models.py`:
+```bash
+python3 -m alembic revision --autogenerate -m "description of change"
+python3 -m alembic upgrade head
+```
+
+### Applying migrations
+
+```bash
+python3 -m alembic upgrade head
+```
+
+### Rolling back
+
+```bash
+python3 -m alembic downgrade -1
+```
+
+### Migration files
+
+Migrations live in `alembic/versions/`. Each has a revision ID and describes schema changes.
+
 ## Scanner Behavior
 
 - **Hostname resolution:** nmap is run with `-R` for reverse DNS. Hostnames are stored on `IPAddress.hostname`. Requires PTR records to be configured on the target IPs; returns `None` if no PTR exists.
