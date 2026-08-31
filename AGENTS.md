@@ -44,11 +44,66 @@ ruff format .
 mkdocs serve
 ```
 
+## Dashboard Development
+
+The React dashboard lives inside `netscan_lite/dashboard/`. The built output goes to `netscan_lite/static/` (gitignored).
+
+```bash
+cd netscan_lite/dashboard
+npm install           # first time only
+npm run dev           # Vite dev server (http://localhost:5173)
+npm run build         # builds to ../static/
+npm run lint          # oxlint (NOT ruff — this is JS/TS)
+```
+
+After `npm run build`, the `static/` directory is served by FastAPI when you run `ns-lite serve`.
+
+## Production Deployment
+
+### Docker (recommended)
+
+```bash
+# Build and start with PostgreSQL
+docker compose up -d
+
+# Check logs
+docker compose logs -f app
+
+# Stop
+docker compose down
+```
+
+### Bare Metal
+
+```bash
+pip install -e ".[xlsx]"
+
+# Start with multiple workers
+ns-lite serve --host 0.0.0.0 --port 8000 --workers 4
+
+# Or single worker for dev
+ns-lite serve
+```
+
+### Environment Variables for Production
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DATABASE_URL` | Yes | PostgreSQL connection string |
+| `LDAP_ENABLED` | Yes | Set to `true` for production auth |
+| `LDAP_SERVER` | If LDAP enabled | LDAP server URL |
+| `LDAP_BIND_DN` | If LDAP enabled | Service account DN |
+| `LDAP_BIND_PASSWORD` | If LDAP enabled | Service account password |
+| `JWT_SECRET_KEY` | Recommended | Token signing key (auto-generated if not set) |
+| `WORKERS` | No | Gunicorn workers (default: 1) |
+| `DB_PASSWORD` | If using docker-compose | PostgreSQL password |
+
 ## Architecture Map
 
 ```
 netscan_lite/
   scanner/
+    __init__.py
     runner.py       # nmap wrapper, scans list of IPs, XML parsing
     classifier.py   # quarantine state machine
     service.py      # scan orchestration (called by CLI + API)
@@ -60,8 +115,9 @@ netscan_lite/
   cli.py            # click CLI (ns-lite binary)
   api.py            # FastAPI REST endpoints (router + WebSocket)
   main.py           # app entrypoint, static file serving
-  static/           # built React dashboard (gitignored)
-  dashboard/        # React SPA source (Vite + Tailwind)
+  static/           # built React dashboard (gitignored — run `npm run build` in dashboard/)
+  dashboard/        # React SPA source (Vite + Tailwind, NOT gitignored)
+    package.json    # npm scripts: dev, build, lint (oxlint), preview
     src/
       api.ts        # fetch wrapper + WebSocket client
       App.tsx       # router with protected routes
@@ -75,6 +131,8 @@ netscan_lite/
 - Run with `pytest -v`
 - No nmap required for tests (mock scanner)
 - 84 tests covering: API, CLI, classifier, importer, scanner runner, dashboard API
+- CI tests Python 3.10–3.13
+- pytest config: `asyncio_mode = "auto"` in `pyproject.toml`
 
 ## Scanner Behavior
 
@@ -119,6 +177,7 @@ Request/response models are defined in `api.py` (`AvailableResponse`, `ScanReque
 - Follow patterns already in the codebase
 - No new dependencies without discussion
 - No comments unless necessary; prefer clear naming
+- ruff config: line-length=120, target Python 3.10 (`pyproject.toml`)
 
 ## Domain Invariants (do not break)
 

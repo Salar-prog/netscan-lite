@@ -16,6 +16,7 @@ dependencies = [
     "click>=8.0",
     "fastapi>=0.100.0",
     "uvicorn>=0.20.0",
+    "gunicorn>=21.2",
     "sqlmodel>=0.0.14",
     "pydantic-settings>=2.0",
     "ldap3>=2.9",

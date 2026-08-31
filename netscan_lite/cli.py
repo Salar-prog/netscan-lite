@@ -183,14 +183,42 @@ def status(ip_address: str, json_output: bool):
 @cli.command()
 @click.option("--host", default="0.0.0.0", help="Bind host")
 @click.option("--port", default=8000, type=int, help="Bind port")
-def serve(host: str, port: int):
+@click.option("--workers", default=1, type=int, help="Number of uvicorn workers (1 = single-process dev mode)")
+@click.option("--log-level", default="info", type=click.Choice(["debug", "info", "warning", "error"]), help="Log level")
+def serve(host: str, port: int, workers: int, log_level: str):
     """Start the API server."""
-    import uvicorn
-
     from netscan_lite.main import create_app
 
     app = create_app()
-    uvicorn.run(app, host=host, port=port)
+
+    if workers > 1:
+        import gunicorn.app.base
+
+        class StandaloneApplication(gunicorn.app.base.BaseApplication):
+            def __init__(self, app, options=None):
+                self.options = options or {}
+                self.application = app
+                super().__init__()
+
+            def load_config(self):
+                for key, value in self.options.items():
+                    if key in self.cfg.settings and value is not None:
+                        self.cfg.set(key.lower(), value)
+
+            def load(self):
+                return self.application
+
+        options = {
+            "bind": f"{host}:{port}",
+            "workers": workers,
+            "worker_class": "uvicorn.workers.UvicornWorker",
+            "loglevel": log_level,
+        }
+        StandaloneApplication(app, options).run()
+    else:
+        import uvicorn
+
+        uvicorn.run(app, host=host, port=port, log_level=log_level)
 
 
 @cli.command()
