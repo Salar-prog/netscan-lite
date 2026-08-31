@@ -57,3 +57,4 @@ nav:
   - CLI Reference: cli.md
   - API Reference: api.md
   - Configuration: config.md
+  - Deployment: deployment.md
