@@ -20,7 +20,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql+asyncpg://netscan:${DB_PASSWORD:-netscan_dev}@db:5432/netscan
+      DATABASE_URL: postgresql://netscan:${DB_PASSWORD:-netscan_dev}@db:5432/netscan
       LDAP_ENABLED: ${LDAP_ENABLED:-false}
       DEV_AUTH_ENABLED: ${DEV_AUTH_ENABLED:-false}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-}
