@@ -44,10 +44,19 @@ netscan_lite/
   cli.py            # Click CLI (ns-lite binary)
   api.py            # FastAPI REST endpoints
   main.py           # app entrypoint
+  auth.py           # LDAP auth, JWT tokens
+  dashboard/        # React SPA source (Vite + Tailwind)
+    src/
+      api.ts        # fetch wrapper + WebSocket client
+      App.tsx       # router with protected routes
+      components/   # Login, Dashboard, IpList, IpDetail, etc.
+  static/           # built React dashboard (gitignored)
 tests/
   conftest.py       # shared fixtures (in-memory SQLite)
   test_*.py         # test suites
 docs/               # MkDocs Material site
+alembic/            # database migrations
+  versions/         # migration files
 ```
 
 ## Running Tests
