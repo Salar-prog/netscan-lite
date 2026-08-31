@@ -98,6 +98,45 @@ ns-lite serve
 | `WORKERS` | No | Gunicorn workers (default: 1) |
 | `DB_PASSWORD` | If using docker-compose | PostgreSQL password |
 
+### TLS / HTTPS
+
+ns-lite runs plain HTTP. For production, place a reverse proxy in front:
+
+**nginx:**
+```nginx
+server {
+    listen 443 ssl;
+    server_name ns-lite.internal;
+
+    ssl_certificate /etc/ssl/certs/ns-lite.pem;
+    ssl_certificate_key /etc/ssl/private/ns-lite.key;
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /ws/ {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+}
+```
+
+**Caddy (simpler):**
+```
+ns-lite.internal {
+    reverse_proxy localhost:8000
+}
+```
+
+Caddy auto-provisions TLS via Let's Encrypt.
+
 ## Architecture Map
 
 ```
