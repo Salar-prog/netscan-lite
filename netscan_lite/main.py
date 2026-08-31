@@ -57,6 +57,8 @@ def create_app() -> FastAPI:
         description="Lightweight IP discovery with quarantine logic",
         version=app_version,
         lifespan=lifespan,
+        docs_url="/docs" if settings.DEBUG else None,
+        redoc_url="/redoc" if settings.DEBUG else None,
     )
 
     app.include_router(auth_router)
