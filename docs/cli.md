@@ -163,11 +163,23 @@ Start the REST API server.
 ```bash
 ns-lite serve
 ns-lite serve --host 0.0.0.0 --port 9000
+ns-lite serve --host 0.0.0.0 --port 8000 --workers 4
+ns-lite serve --log-level debug
 ```
 
 | Flag | Description |
 |------|-------------|
 | `--host` | Bind address (default: 127.0.0.1) |
 | `--port` | Port number (default: 8000) |
+| `--workers` | Number of gunicorn workers (default: 1) |
+| `--log-level` | Log verbosity: debug, info, warning, error (default: info) |
+
+!!! tip "Production"
+
+    For production, use multiple workers and bind to all interfaces:
+
+    ```bash
+    ns-lite serve --host 0.0.0.0 --port 8000 --workers 4
+    ```
 
 See [API Reference](api.md) for all available endpoints.
