@@ -14,6 +14,12 @@ ns-lite is configured via environment variables or a `.env` file in your working
 | `NMAP_TIMING_TEMPLATE` | `-T4` | Nmap timing template |
 | `TOP_TCP_PORTS` | `80,443,22,445,3389,8080,8443,53` | Ports to scan when port scanning is enabled |
 
+### Server Settings
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `WORKERS` | `1` | Number of gunicorn worker processes |
+
 ### LDAP Authentication
 
 | Variable | Default | Description |
@@ -42,7 +48,31 @@ DEBUG=true
 DEFAULT_MISS_THRESHOLD=5
 DEFAULT_QUARANTINE_HOURS=24
 NMAP_TIMEOUT_SECONDS=600
+WORKERS=1
 ```
+
+## Security Notes
+
+### Production Checklist
+
+When deploying to production, ensure:
+
+1. **Set `DEBUG=false`** — disables dev auth and verbose logging
+2. **Enable LDAP** — set `LDAP_ENABLED=true` and configure your LDAP server
+3. **Generate a JWT secret** — `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`
+4. **Use PostgreSQL** — SQLite is single-writer; PostgreSQL supports concurrent access
+5. **Add TLS** — place a reverse proxy (nginx, Caddy) in front
+
+### Dev Auth Security
+
+The `DEV_AUTH_ENABLED` flag allows authentication without LDAP:
+
+```bash
+DEV_AUTH_ENABLED=true  # WARNING: Only use in development!
+DEBUG=true             # Must also be set for dev auth to work
+```
+
+When `DEBUG=false` (production), dev auth is rejected even if `DEV_AUTH_ENABLED=true`.
 
 ## Per-Group Settings
 
