@@ -66,7 +66,20 @@ def create_app() -> FastAPI:
 
     @app.get("/health", tags=["System"])
     def health_check():
-        return {"status": "healthy", "service": "ns-lite"}
+        from sqlalchemy import text
+        from netscan_lite.db import engine
+
+        try:
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            return {"status": "healthy", "service": "ns-lite"}
+        except Exception as e:
+            logger.error("Health check failed: %s", e)
+            return Response(
+                content='{"status":"unhealthy","service":"ns-lite"}',
+                status_code=503,
+                media_type="application/json",
+            )
 
     # Mount dashboard static files (built React app)
     static_dir = Path(__file__).parent / "static"
