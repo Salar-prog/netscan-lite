@@ -74,6 +74,7 @@ def _isolate_cli_db(monkeypatch):
     monkeypatch.setattr("netscan_lite.cli.engine", _cli_engine)
     # Enable dev auth for tests (LDAP_ENABLED=false by default)
     monkeypatch.setattr(settings, "DEV_AUTH_ENABLED", True)
+    monkeypatch.setattr(settings, "DEBUG", True)
 
 
 @pytest.fixture(name="cli_session")

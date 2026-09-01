@@ -83,6 +83,13 @@ def scan(group: Optional[str], ip: Optional[str], no_ports: bool):
         from netscan_lite.scanner.service import scan_ips
 
         try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        if loop and loop.is_running():
+            click.echo("Error: cannot run scan from inside an async context", err=True)
+            raise SystemExit(1)
+        try:
             result = asyncio.run(scan_ips(target_ips, session, group=group_obj, scan_ports=not no_ports))
         except (TimeoutError, RuntimeError) as e:
             click.echo(f"Scan error: {e}", err=True)
@@ -239,15 +246,13 @@ def auth(username: str, password: str, server: Optional[str]):
     api_base = server or settings.API_BASE_URL
 
     # Login via the API's /token endpoint
-    import json as json_mod
-
     data = urllib.parse.urlencode({"username": username, "password": password}).encode()
     req = urllib.request.Request(f"{api_base}/token", data=data, method="POST")
     req.add_header("Content-Type", "application/x-www-form-urlencoded")
 
     try:
         with urllib.request.urlopen(req) as resp:
-            result = json_mod.loads(resp.read().decode())
+            result = json.loads(resp.read().decode())
     except urllib.error.HTTPError as e:
         if e.code == 401:
             click.echo("Authentication failed: invalid username or password", err=True)
@@ -264,6 +269,7 @@ def auth(username: str, password: str, server: Optional[str]):
     token_dir.mkdir(parents=True, exist_ok=True)
     token_file = token_dir / "token"
     token_file.write_text(result["access_token"])
+    token_file.chmod(0o600)
 
     click.echo(f"Authenticated as {result['username']}")
     click.echo(f"Token saved to {token_file}")

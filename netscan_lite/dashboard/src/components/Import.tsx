@@ -28,7 +28,7 @@ function parseCSV(text: string): PreviewRow[] {
     const group = groupIdx >= 0 ? cols[groupIdx] || '' : ''
 
     // Basic IPv4 validation
-    const valid = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(ip)
+    const valid = /^(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)$/.test(ip)
     const error = !ip ? 'Missing IP' : !valid ? `Invalid IP: ${ip}` : undefined
 
     return { ip, hostname, group, valid, error }

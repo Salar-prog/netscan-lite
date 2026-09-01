@@ -28,6 +28,16 @@ class TokenResponse(BaseModel):
     username: str
 
 
+def _escape_ldap_value(value: str) -> str:
+    """Escape special characters for LDAP filter values (RFC 4515)."""
+    escaped = value.replace("\\", "\\5c")
+    escaped = escaped.replace("*", "\\2a")
+    escaped = escaped.replace("(", "\\28")
+    escaped = escaped.replace(")", "\\29")
+    escaped = escaped.replace("\x00", "\\00")
+    return escaped
+
+
 def _ldap_authenticate_sync(username: str, password: str) -> Optional[UserPayload]:
     """Synchronous LDAP search+bind authentication. Runs in a thread."""
     server = Server(settings.LDAP_SERVER, get_info=ALL, use_ssl=settings.LDAP_USE_SSL)
@@ -37,7 +47,7 @@ def _ldap_authenticate_sync(username: str, password: str) -> Optional[UserPayloa
 
     try:
         # Step 2: Search for user DN
-        search_filter = settings.LDAP_SEARCH_FILTER.format(username=username)
+        search_filter = settings.LDAP_SEARCH_FILTER.format(username=_escape_ldap_value(username))
         admin_conn.search(
             search_base=settings.LDAP_SEARCH_BASE,
             search_filter=search_filter,

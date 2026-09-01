@@ -1,4 +1,6 @@
 import logging
+import time
+from collections import defaultdict
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -22,7 +24,54 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "default-src 'self'; script-src 'self' 'unsafe-inline'; "
             "style-src 'self' 'unsafe-inline'; img-src 'self' data:"
         )
+        if settings.DEBUG:
+            response.headers["Strict-Transport-Security"] = "max-age=0"
+        else:
+            response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
         return response
+
+
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    def __init__(self, app, max_requests: int = 120, window_seconds: int = 60):
+        super().__init__(app)
+        self.max_requests = max_requests
+        self.window = window_seconds
+        self._requests: dict[str, list[float]] = defaultdict(list)
+        self._last_cleanup: float = time.time()
+        self._cleanup_interval: float = 300  # every 5 minutes
+
+    def _cleanup_stale(self, now: float):
+        """Remove IPs with no recent requests to prevent memory leak."""
+        if now - self._last_cleanup < self._cleanup_interval:
+            return
+        self._last_cleanup = now
+        stale_threshold = now - self.window * 2
+        stale_ips = [ip for ip, times in self._requests.items() if not times or times[-1] < stale_threshold]
+        for ip in stale_ips:
+            del self._requests[ip]
+
+    async def dispatch(self, request: Request, call_next):
+        if request.url.path == "/health":
+            return await call_next(request)
+
+        client_ip = request.client.host if request.client else "unknown"
+        now = time.time()
+        window_start = now - self.window
+
+        # Prune old entries for this IP
+        self._requests[client_ip] = [t for t in self._requests[client_ip] if t > window_start]
+
+        if len(self._requests[client_ip]) >= self.max_requests:
+            return Response(content='{"detail":"Rate limit exceeded"}', status_code=429, media_type="application/json")
+
+        self._requests[client_ip].append(now)
+
+        # Periodic cleanup of stale IPs
+        self._cleanup_stale(now)
+
+        return await call_next(request)
 
 
 @asynccontextmanager
@@ -65,6 +114,7 @@ def create_app() -> FastAPI:
     app.include_router(router)
     app.include_router(ws_router)
     app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(RateLimitMiddleware)
 
     @app.get("/health", tags=["System"])
     def health_check():
@@ -83,7 +133,8 @@ def create_app() -> FastAPI:
                 media_type="application/json",
             )
 
-    # Mount dashboard static files (built React app)
+    # Mount dashboard static files (built React app).
+    # WARNING: This catch-all must be added LAST — any routes added after this will be swallowed.
     static_dir = Path(__file__).parent / "static"
     if static_dir.exists():
         app.mount("/", StaticFiles(directory=str(static_dir), html=True), name="dashboard")

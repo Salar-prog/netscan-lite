@@ -25,9 +25,18 @@ FROM python:3.12-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends nmap curl && rm -rf /var/lib/apt/lists/*
 
+RUN groupadd -r ns-lite && useradd -r -g ns-lite -d /home/ns-lite -s /sbin/nologin ns-lite \
+    && mkdir -p /home/ns-lite/.ns-lite /app/data \
+    && chown -R ns-lite:ns-lite /home/ns-lite /app/data
+
 COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=builder /usr/local/bin/ns-lite /usr/local/bin/ns-lite
 COPY --from=dashboard-builder /app/netscan_lite/static /usr/local/lib/python3.12/site-packages/netscan_lite/static
+
+RUN chown -R ns-lite:ns-lite /usr/local/lib/python3.12/site-packages/netscan_lite
+
+USER ns-lite
+WORKDIR /app
 
 EXPOSE 8000
 

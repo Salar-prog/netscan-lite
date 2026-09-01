@@ -124,8 +124,8 @@ class NmapScanner:
             )
 
         if process.returncode != 0 and not stdout:
-            err_msg = stderr.decode(errors="replace")
-            raise RuntimeError(f"Nmap exited with code {process.returncode}: {err_msg}")
+            logger.warning("Nmap exited with code %d (stderr: %s)", process.returncode, stderr.decode(errors="replace"))
+            raise RuntimeError("Nmap scan failed — check logs for details")
 
         return self.parse_nmap_xml(stdout.decode(errors="replace"))
 

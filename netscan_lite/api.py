@@ -1,6 +1,7 @@
 import ipaddress
 import logging
 import tempfile
+import uuid
 from pathlib import Path
 from typing import List, Optional
 
@@ -19,7 +20,7 @@ from netscan_lite.auth import (
 )
 from netscan_lite.config import settings
 from netscan_lite.db import engine, get_session
-from netscan_lite.models import Group, IPAddress, IPStatus
+from netscan_lite.models import Group, IPAddress, IPStatus, utc_now
 
 logger = logging.getLogger(__name__)
 
@@ -189,9 +190,7 @@ async def trigger_scan(
         target_ips = request.ips
         group_obj = None
     else:
-        ips = session.exec(select(IPAddress)).all()
-        target_ips = [i.ip for i in ips]
-        group_obj = None
+        raise HTTPException(status_code=400, detail="Provide either 'group' or 'ips' to scan")
 
     if not target_ips:
         raise HTTPException(status_code=400, detail="No IPs to scan")
@@ -241,29 +240,35 @@ def list_ips(
     page_size: int = Query(default=25, ge=1, le=100),
 ):
     """List all IPs with filtering, search, and pagination."""
-    query = select(IPAddress)
+    conditions = []
 
     if group:
         group_obj = session.exec(select(Group).where(Group.name == group)).first()
         if not group_obj:
             raise HTTPException(status_code=404, detail=f"Group '{group}' not found")
-        query = query.where(IPAddress.group_id == group_obj.id)
+        conditions.append(IPAddress.group_id == group_obj.id)
 
     if status_filter:
         try:
             st = IPStatus(status_filter)
-            query = query.where(IPAddress.status == st)
+            conditions.append(IPAddress.status == st)
         except ValueError:
             raise HTTPException(status_code=400, detail=f"Invalid status: {status_filter}")
 
     if search:
         safe = _escape_like(search)
         search_pattern = f"%{safe}%"
-        query = query.where((IPAddress.ip.like(search_pattern)) | (IPAddress.hostname.like(search_pattern)))
+        conditions.append((IPAddress.ip.like(search_pattern)) | (IPAddress.hostname.like(search_pattern)))
 
-    total = len(session.exec(query).all())
+    count_query = select(func.count(IPAddress.id))
+    data_query = select(IPAddress)
+    for cond in conditions:
+        count_query = count_query.where(cond)
+        data_query = data_query.where(cond)
 
-    query = query.order_by(IPAddress.ip).offset((page - 1) * page_size).limit(page_size)
+    total = session.exec(count_query).one()
+
+    query = data_query.order_by(IPAddress.ip).offset((page - 1) * page_size).limit(page_size)
     ips = session.exec(query).all()
 
     # Resolve group names
@@ -359,18 +364,21 @@ def get_stats(
     session: Session = Depends(get_session),
 ):
     """Get dashboard overview stats."""
+    from sqlalchemy import case
+
     total = session.exec(select(func.count(IPAddress.id))).one()
-    active = session.exec(select(func.count(IPAddress.id)).where(IPAddress.status == IPStatus.ACTIVE_DETECTED)).one()
-    uncertain = session.exec(
-        select(func.count(IPAddress.id)).where(IPAddress.status == IPStatus.UNCERTAIN_FIREWALLED)
-    ).one()
-    available = session.exec(
-        select(func.count(IPAddress.id)).where(IPAddress.status == IPStatus.AVAILABLE_CANDIDATE)
-    ).one()
-    reserved = session.exec(
-        select(func.count(IPAddress.id)).where(IPAddress.status == IPStatus.ASSIGNED_RESERVED)
-    ).one()
     group_count = session.exec(select(func.count(Group.id))).one()
+
+    # Single query for all status counts
+    status_counts = session.exec(
+        select(
+            func.count(IPAddress.id),
+            func.sum(case((IPAddress.status == IPStatus.ACTIVE_DETECTED, 1), else_=0)),
+            func.sum(case((IPAddress.status == IPStatus.UNCERTAIN_FIREWALLED, 1), else_=0)),
+            func.sum(case((IPAddress.status == IPStatus.AVAILABLE_CANDIDATE, 1), else_=0)),
+            func.sum(case((IPAddress.status == IPStatus.ASSIGNED_RESERVED, 1), else_=0)),
+        )
+    ).one()
 
     last_ip = session.exec(
         select(IPAddress).where(IPAddress.last_scanned_at.is_not(None)).order_by(IPAddress.last_scanned_at.desc())
@@ -379,10 +387,10 @@ def get_stats(
 
     return StatsResponse(
         total_ips=total,
-        active=active,
-        uncertain=uncertain,
-        available=available,
-        reserved=reserved,
+        active=status_counts[1] or 0,
+        uncertain=status_counts[2] or 0,
+        available=status_counts[3] or 0,
+        reserved=status_counts[4] or 0,
         groups=group_count,
         last_scan=last_scan,
     )
@@ -400,20 +408,29 @@ def list_groups_detail(
 ):
     """List all groups with IP counts."""
     groups = session.exec(select(Group)).all()
-    result = []
-    for g in groups:
-        ip_count = session.exec(select(func.count(IPAddress.id)).where(IPAddress.group_id == g.id)).one()
-        result.append(
-            GroupDetailResponse(
-                id=str(g.id),
-                name=g.name,
-                description=g.description,
-                miss_threshold=g.miss_threshold,
-                quarantine_hours=g.quarantine_hours,
-                ip_count=ip_count,
-            )
+
+    # Batch-load IP counts to avoid N+1
+    group_ids = [g.id for g in groups]
+    counts = {}
+    if group_ids:
+        rows = session.exec(
+            select(IPAddress.group_id, func.count(IPAddress.id))
+            .where(IPAddress.group_id.in_(group_ids))
+            .group_by(IPAddress.group_id)
+        ).all()
+        counts = {row[0]: row[1] for row in rows}
+
+    return [
+        GroupDetailResponse(
+            id=str(g.id),
+            name=g.name,
+            description=g.description,
+            miss_threshold=g.miss_threshold,
+            quarantine_hours=g.quarantine_hours,
+            ip_count=counts.get(g.id, 0),
         )
-    return result
+        for g in groups
+    ]
 
 
 @router.put("/groups/{group_id}", response_model=GroupDetailResponse, tags=["Groups"])
@@ -424,8 +441,6 @@ def update_group(
     session: Session = Depends(get_session),
 ):
     """Update group quarantine settings."""
-    import uuid
-
     try:
         gid = uuid.UUID(group_id)
     except ValueError:
@@ -441,6 +456,7 @@ def update_group(
         group.quarantine_hours = request.quarantine_hours
     if request.description is not None:
         group.description = request.description
+    group.updated_at = utc_now()
 
     session.add(group)
     session.commit()
@@ -465,8 +481,6 @@ def delete_group(
     session: Session = Depends(get_session),
 ):
     """Delete a group and all its IPs."""
-    import uuid
-
     try:
         gid = uuid.UUID(group_id)
     except ValueError:
@@ -476,6 +490,10 @@ def delete_group(
     if not group:
         raise HTTPException(status_code=404, detail=f"Group '{group_id}' not found")
 
+    # Explicitly delete IPs first to guarantee cascade (don't rely on lazy-loaded relationship)
+    ips = session.exec(select(IPAddress).where(IPAddress.group_id == gid)).all()
+    for ip in ips:
+        session.delete(ip)
     session.delete(group)
     session.commit()
 
@@ -522,13 +540,17 @@ async def import_file(
     session: Session = Depends(get_session),
 ):
     """Import IPs from a CSV or XLSX file."""
+    MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
+
     suffix = Path(file.filename or "").suffix.lower()
     if suffix not in (".csv", ".xlsx"):
         raise HTTPException(status_code=400, detail="Only .csv and .xlsx files are supported")
 
     # Save uploaded file to temp location
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-        content = await file.read()
+        content = await file.read(MAX_UPLOAD_BYTES + 1)
+        if len(content) > MAX_UPLOAD_BYTES:
+            raise HTTPException(status_code=413, detail="File exceeds 10 MB limit")
         tmp.write(content)
         tmp_path = Path(tmp.name)
 
@@ -542,7 +564,8 @@ async def import_file(
             errors=result["errors"],
         )
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.warning("Import failed: %s", e)
+        raise HTTPException(status_code=400, detail="Failed to parse import file")
     finally:
         tmp_path.unlink(missing_ok=True)
 
@@ -564,8 +587,8 @@ async def ws_scan(websocket: WebSocket):
         if payload is None:
             await websocket.close(code=4001, reason="Invalid or expired token")
             return
-    elif not settings.DEV_AUTH_ENABLED:
-        await websocket.close(code=4001, reason="Dev auth disabled")
+    elif not settings.DEV_AUTH_ENABLED or not settings.DEBUG:
+        await websocket.close(code=4001, reason="Dev auth requires DEBUG=true")
         return
     # Dev mode: any token accepted
 
@@ -589,12 +612,20 @@ async def ws_scan(websocket: WebSocket):
             all_ips = session.exec(select(IPAddress).where(IPAddress.group_id == group_obj.id)).all()
             target_ips = [i.ip for i in all_ips]
         elif ips:
-            target_ips = ips
+            target_ips = []
+            for ip in ips:
+                try:
+                    ipaddress.IPv4Address(ip.strip())
+                    target_ips.append(ip.strip())
+                except ValueError:
+                    await websocket.send_json({"type": "error", "detail": f"Invalid IPv4 address: {ip}"})
+                    await websocket.close()
+                    return
             group_obj = None
         else:
-            all_ips = session.exec(select(IPAddress)).all()
-            target_ips = [i.ip for i in all_ips]
-            group_obj = None
+            await websocket.send_json({"type": "error", "detail": "Provide either 'group' or 'ips' to scan"})
+            await websocket.close()
+            return
 
         if not target_ips:
             await websocket.send_json({"type": "error", "detail": "No IPs to scan"})

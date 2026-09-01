@@ -109,11 +109,11 @@ def test_import_csv(runner, tmp_path):
     csv_file = tmp_path / "test.csv"
     csv_file.write_text("ip,hostname,group\n10.0.0.1,host1,infra\n10.0.0.2,,general\n")
 
-    result = runner.invoke(cli, ["import", str(csv_file)])
+    result = runner.invoke(cli, ["import-cmd", str(csv_file)])
     assert result.exit_code == 0
     assert "Imported: 2" in result.output
 
 
 def test_import_file_not_found(runner):
-    result = runner.invoke(cli, ["import", "/nonexistent/file.csv"])
+    result = runner.invoke(cli, ["import-cmd", "/nonexistent/file.csv"])
     assert result.exit_code != 0
