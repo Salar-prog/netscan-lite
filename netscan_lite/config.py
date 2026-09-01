@@ -58,11 +58,14 @@ class Settings(BaseSettings):
     LDAP_BIND_PASSWORD: str = ""
     LDAP_SEARCH_BASE: str = "dc=example,dc=com"
     LDAP_SEARCH_FILTER: str = "(sAMAccountName={username})"
-    LDAP_STARTTLS: bool = False
+    LDAP_USE_SSL: bool = False
 
     # JWT
     JWT_SECRET_KEY: str = ""
     JWT_EXPIRY_HOURS: int = 24
+
+    # API base URL (used by CLI auth command)
+    API_BASE_URL: str = "http://127.0.0.1:8000"
 
     def model_post_init(self, __context: object) -> None:
         if not self.JWT_SECRET_KEY:

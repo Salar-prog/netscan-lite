@@ -30,7 +30,7 @@ class TokenResponse(BaseModel):
 
 def _ldap_authenticate_sync(username: str, password: str) -> Optional[UserPayload]:
     """Synchronous LDAP search+bind authentication. Runs in a thread."""
-    server = Server(settings.LDAP_SERVER, get_info=ALL, use_ssl=settings.LDAP_STARTTLS)
+    server = Server(settings.LDAP_SERVER, get_info=ALL, use_ssl=settings.LDAP_USE_SSL)
 
     # Step 1: Bind with service account
     admin_conn = Connection(server, user=settings.LDAP_BIND_DN, password=settings.LDAP_BIND_PASSWORD, auto_bind=True)
