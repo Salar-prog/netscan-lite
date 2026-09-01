@@ -476,11 +476,6 @@ def delete_group(
     if not group:
         raise HTTPException(status_code=404, detail=f"Group '{group_id}' not found")
 
-    # Delete all IPs in the group first
-    ips = session.exec(select(IPAddress).where(IPAddress.group_id == gid)).all()
-    for ip in ips:
-        session.delete(ip)
-
     session.delete(group)
     session.commit()
 
