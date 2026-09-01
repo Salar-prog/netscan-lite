@@ -224,7 +224,7 @@ def serve(host: str, port: int, workers: int, log_level: str):
 @cli.command()
 @click.option("--username", "-u", prompt="Username", help="LDAP username")
 @click.option("--password", "-p", prompt=True, hide_input=True, help="LDAP password")
-@click.option("--server", "-s", default=None, help="LDAP server URL (overrides env)")
+@click.option("--server", "-s", default=None, help="API server URL (default: http://127.0.0.1:8000)")
 def auth(username: str, password: str, server: Optional[str]):
     """Authenticate and store a JWT token for API access.
 
@@ -235,8 +235,8 @@ def auth(username: str, password: str, server: Optional[str]):
 
     from netscan_lite.config import settings
 
-    # Determine API base URL
-    api_base = "http://127.0.0.1:8000"
+    # Determine API base URL: --server flag > env var > default
+    api_base = server or settings.API_BASE_URL
 
     # Login via the API's /token endpoint
     import json as json_mod
