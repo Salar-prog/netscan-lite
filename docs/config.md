@@ -19,6 +19,7 @@ ns-lite is configured via environment variables or a `.env` file in your working
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `WORKERS` | `1` | Number of gunicorn worker processes |
+| `API_BASE_URL` | `http://127.0.0.1:8000` | API server URL (used by CLI auth command) |
 
 ### LDAP Authentication
 
@@ -31,7 +32,7 @@ ns-lite is configured via environment variables or a `.env` file in your working
 | `LDAP_BIND_PASSWORD` | (empty) | Service account password |
 | `LDAP_SEARCH_BASE` | `dc=example,dc=com` | Base DN for user search |
 | `LDAP_SEARCH_FILTER` | `(sAMAccountName={username})` | Search filter (`{username}` is replaced) |
-| `LDAP_STARTTLS` | `false` | Use StartTLS for connection |
+| `LDAP_USE_SSL` | `false` | Use LDAPS (implicit TLS on port 636) |
 
 ### JWT Settings
 

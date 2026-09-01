@@ -578,7 +578,7 @@ Environment variables or `.env` file:
 | `LDAP_BIND_PASSWORD` | (empty) | Service account password |
 | `LDAP_SEARCH_BASE` | `dc=example,dc=com` | Base DN for user search |
 | `LDAP_SEARCH_FILTER` | `(sAMAccountName={username})` | Search filter |
-| `LDAP_STARTTLS` | `false` | Use StartTLS |
+| `LDAP_USE_SSL` | `false` | Use LDAPS (implicit TLS on port 636) |
 
 ### JWT Settings
 

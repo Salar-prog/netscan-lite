@@ -52,7 +52,7 @@ LDAP_BIND_DN=cn=service-account,dc=example,dc=com
 LDAP_BIND_PASSWORD=your-ldap-password
 LDAP_SEARCH_BASE=dc=example,dc=com
 LDAP_SEARCH_FILTER=(sAMAccountName={username})
-LDAP_STARTTLS=true
+LDAP_USE_SSL=true
 
 # Security
 JWT_SECRET_KEY=generate-a-random-key-here
@@ -190,7 +190,7 @@ Environment=LDAP_BIND_DN=cn=ns-lite,dc=example,dc=com
 Environment=LDAP_BIND_PASSWORD=secret
 Environment=LDAP_SEARCH_BASE=dc=example,dc=com
 Environment=LDAP_SEARCH_FILTER=(sAMAccountName={username})
-Environment=LDAP_STARTTLS=true
+Environment=LDAP_USE_SSL=true
 Environment=DEBUG=false
 Environment=WORKERS=4
 ExecStart=/usr/local/bin/ns-lite serve --host 0.0.0.0 --port 8000 --workers 4
@@ -307,7 +307,7 @@ LDAP_BIND_DN=cn=ns-lite-service,dc=example,dc=com
 LDAP_BIND_PASSWORD=your-secure-password
 LDAP_SEARCH_BASE=dc=example,dc=com
 LDAP_SEARCH_FILTER=(sAMAccountName={username})
-LDAP_STARTTLS=true
+LDAP_USE_SSL=true
 ```
 
 !!! warning "Dev Auth"

@@ -9,12 +9,14 @@ Authenticate and store a JWT token for API access.
 ```bash
 ns-lite auth --username jsmith
 ns-lite auth -u jsmith -p secret123
+ns-lite auth -u jsmith -p secret123 --server http://remote-host:8000
 ```
 
 | Flag | Description |
 |------|-------------|
 | `--username`, `-u` | LDAP username (prompted if not provided) |
 | `--password`, `-p` | LDAP password (hidden input, prompted if not provided) |
+| `--server`, `-s` | API server URL (default: `http://127.0.0.1:8000`, or `API_BASE_URL` env var) |
 
 The token is saved to `~/.ns-lite/token` and used automatically by other ns-lite commands when `LDAP_ENABLED=true`.
 
