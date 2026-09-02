@@ -414,3 +414,44 @@ def test_list_ips_group_not_found(client, auth_headers):
 def test_scan_single_ip_not_found(client, auth_headers):
     resp = client.post("/api/ips/10.0.0.99/scan", headers=auth_headers)
     assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# WS /ws/scan
+# ---------------------------------------------------------------------------
+
+
+def test_ws_scan_rejects_invalid_json(db_engine, client):
+    """WebSocket with invalid JSON payload should return error and close."""
+    with client.websocket_connect("/ws/scan?token=test-token") as ws:
+        ws.send_text("not-json")
+        data = ws.receive_json()
+        assert data["type"] == "error"
+        assert "Invalid JSON" in data["detail"]
+
+
+def test_ws_scan_missing_group_or_ips(db_engine, client):
+    """WebSocket with empty payload should return error."""
+    with client.websocket_connect("/ws/scan?token=test-token") as ws:
+        ws.send_json({})
+        data = ws.receive_json()
+        assert data["type"] == "error"
+        assert "Provide either" in data["detail"]
+
+
+def test_ws_scan_group_not_found(db_engine, client):
+    """WebSocket with nonexistent group should return error."""
+    with client.websocket_connect("/ws/scan?token=test-token") as ws:
+        ws.send_json({"group": "nonexistent"})
+        data = ws.receive_json()
+        assert data["type"] == "error"
+        assert "not found" in data["detail"]
+
+
+def test_ws_scan_invalid_ip(db_engine, client):
+    """WebSocket with invalid IP should return error."""
+    with client.websocket_connect("/ws/scan?token=test-token") as ws:
+        ws.send_json({"ips": ["not-an-ip"]})
+        data = ws.receive_json()
+        assert data["type"] == "error"
+        assert "Invalid IPv4" in data["detail"]
