@@ -4,11 +4,12 @@ Revision ID: 001
 Revises:
 Create Date: 2026-08-31
 """
+
 from typing import Sequence, Union
 
 import sqlalchemy as sa
+
 from alembic import op
-from sqlmodel import SQLModel
 
 # revision identifiers, used by Alembic.
 revision: str = "001"

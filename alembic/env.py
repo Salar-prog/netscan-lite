@@ -2,9 +2,10 @@ import sys
 from logging.config import fileConfig
 from pathlib import Path
 
-from alembic import context
 from sqlalchemy import engine_from_config, pool
 from sqlmodel import SQLModel
+
+from alembic import context
 
 # Add project root to sys.path so we can import netscan_lite
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))

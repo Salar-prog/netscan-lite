@@ -119,6 +119,7 @@ def create_app() -> FastAPI:
     @app.get("/health", tags=["System"])
     def health_check():
         from sqlalchemy import text
+
         from netscan_lite.db import engine
 
         try:
