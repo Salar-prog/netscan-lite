@@ -77,10 +77,10 @@ TOKEN=$(curl -s -X POST http://localhost:8000/token \
 
 # Get available IPs via API
 curl -H "Authorization: Bearer $TOKEN" \
-  "http://localhost:8000/api/available?group=infra&count=3" | jq .
+  "http://localhost:8000/api/v1/available?group=infra&count=3" | jq .
 
 # Trigger a scan via API
-curl -X POST http://localhost:8000/api/scan \
+curl -X POST http://localhost:8000/api/v1/scan \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"group": "infra"}' | jq .

@@ -111,7 +111,7 @@ export function currentUser(): string | null {
 // ---------------------------------------------------------------------------
 
 export function getStats(): Promise<Stats> {
-  return apiFetch<Stats>('/api/stats')
+  return apiFetch<Stats>('/api/v1/stats')
 }
 
 // ---------------------------------------------------------------------------
@@ -119,11 +119,11 @@ export function getStats(): Promise<Stats> {
 // ---------------------------------------------------------------------------
 
 export function getGroups(): Promise<Group[]> {
-  return apiFetch<Group[]>('/api/groups')
+  return apiFetch<Group[]>('/api/v1/groups')
 }
 
 export function getGroupsDetail(): Promise<GroupDetail[]> {
-  return apiFetch<GroupDetail[]>('/api/groups-detail')
+  return apiFetch<GroupDetail[]>('/api/v1/groups-detail')
 }
 
 export function updateGroup(
@@ -186,7 +186,7 @@ export function scanIP(ip: string): Promise<ScanResponse> {
 // ---------------------------------------------------------------------------
 
 export function triggerScan(data: { group?: string; ips?: string[] }): Promise<ScanResponse> {
-  return apiFetch<ScanResponse>('/api/scan', {
+  return apiFetch<ScanResponse>('/api/v1/scan', {
     method: 'POST',
     body: JSON.stringify(data),
   })

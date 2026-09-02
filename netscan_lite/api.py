@@ -24,7 +24,7 @@ from netscan_lite.models import Group, IPAddress, IPStatus, utc_now
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api")
+router = APIRouter(prefix="/api/v1")
 ws_router = APIRouter()
 
 
@@ -127,6 +127,23 @@ class IPListResponse(BaseModel):
     page_size: int
 
 
+class ScanJobResponse(BaseModel):
+    job_id: str
+    status: str
+    target_count: int
+    created_at: str
+
+
+class ScanJobStatusResponse(BaseModel):
+    job_id: str
+    status: str
+    result: Optional[ScanResponse] = None
+    error: Optional[str] = None
+    created_at: str
+    started_at: Optional[str] = None
+    completed_at: Optional[str] = None
+
+
 # ---------------------------------------------------------------------------
 # Token endpoint (outside /api prefix so it's at /token)
 # ---------------------------------------------------------------------------
@@ -209,6 +226,104 @@ async def trigger_scan(
         uncertain=result["uncertain"],
         available=result["available"],
     )
+
+
+# ---------------------------------------------------------------------------
+# Async scan jobs
+# ---------------------------------------------------------------------------
+
+
+def _resolve_target_ips(request: ScanRequest, session: Session) -> tuple[list[str], Optional[Group]]:
+    """Resolve scan request to target IPs and group."""
+    if request.group:
+        group_obj = session.exec(select(Group).where(Group.name == request.group)).first()
+        if not group_obj:
+            raise HTTPException(status_code=404, detail=f"Group '{request.group}' not found")
+        ips = session.exec(select(IPAddress).where(IPAddress.group_id == group_obj.id)).all()
+        return [i.ip for i in ips], group_obj
+    elif request.ips:
+        return request.ips, None
+    raise HTTPException(status_code=400, detail="Provide either 'group' or 'ips' to scan")
+
+
+@router.post("/scan/async", response_model=ScanJobResponse, tags=["Scanning"])
+async def trigger_scan_async(
+    request: ScanRequest,
+    _user: UserPayload = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Start a background scan. Returns a job ID for polling with GET /scan/{job_id}."""
+    target_ips, group_obj = _resolve_target_ips(request, session)
+    if not target_ips:
+        raise HTTPException(status_code=400, detail="No IPs to scan")
+
+    from netscan_lite.scanner.jobs import create_scan_job
+
+    job = await create_scan_job(
+        target_ips=target_ips,
+        group_name=group_obj.name if group_obj else None,
+        session=session,
+    )
+    return ScanJobResponse(
+        job_id=job.job_id,
+        status=job.status.value,
+        target_count=len(job.target_ips),
+        created_at=job.created_at.isoformat(),
+    )
+
+
+@router.get("/scan/{job_id}", response_model=ScanJobStatusResponse, tags=["Scanning"])
+async def get_scan_status(
+    job_id: str,
+    _user: UserPayload = Depends(get_current_user),
+):
+    """Get status and result of a background scan job."""
+    from netscan_lite.scanner.jobs import get_job
+
+    job = get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
+
+    result = None
+    if job.result:
+        result = ScanResponse(
+            message=f"Scanned {job.result['scanned']} IP(s)",
+            scanned=job.result["scanned"],
+            active=job.result["active"],
+            uncertain=job.result["uncertain"],
+            available=job.result["available"],
+        )
+
+    return ScanJobStatusResponse(
+        job_id=job.job_id,
+        status=job.status.value,
+        result=result,
+        error=job.error,
+        created_at=job.created_at.isoformat(),
+        started_at=job.started_at.isoformat() if job.started_at else None,
+        completed_at=job.completed_at.isoformat() if job.completed_at else None,
+    )
+
+
+@router.get("/scan-jobs", tags=["Scanning"])
+async def list_scan_jobs(
+    _user: UserPayload = Depends(get_current_user),
+):
+    """List all scan jobs."""
+    from netscan_lite.scanner.jobs import list_jobs
+
+    jobs = list_jobs()
+    return [
+        {
+            "job_id": j.job_id,
+            "status": j.status.value,
+            "target_count": len(j.target_ips),
+            "group_name": j.group_name,
+            "created_at": j.created_at.isoformat(),
+            "completed_at": j.completed_at.isoformat() if j.completed_at else None,
+        }
+        for j in jobs
+    ]
 
 
 @router.get("/groups", response_model=List[GroupResponse], tags=["Groups"])

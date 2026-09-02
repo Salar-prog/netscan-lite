@@ -234,7 +234,7 @@ Query available IPs directly from your Terraform workflows.
 
 ```hcl
 data "http" "available_ips" {
-  url = "http://ns-lite:8000/api/available?group=infra&count=3"
+  url = "http://ns-lite:8000/api/v1/available?group=infra&count=3"
 }
 ```
 

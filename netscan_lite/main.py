@@ -1,18 +1,30 @@
 import logging
 import time
+import uuid
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from netscan_lite.api import auth_router, router, ws_router
 from netscan_lite.config import settings
 from netscan_lite.db import init_db
+from netscan_lite.logging_config import request_id_var, setup_logging
 
 logger = logging.getLogger(__name__)
+
+
+class RequestIDMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        req_id = request.headers.get("X-Request-ID", str(uuid.uuid4())[:8])
+        request_id_var.set(req_id)
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = req_id
+        return response
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -34,6 +46,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
+    # ponytail: in-memory per-worker rate limiter. With WORKERS > 1,
+    # effective limit is max_requests × workers. Use reverse proxy
+    # rate limiting (nginx limit_req) for global limits in production.
     def __init__(self, app, max_requests: int = 120, window_seconds: int = 60):
         super().__init__(app)
         self.max_requests = max_requests
@@ -77,6 +92,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan handler."""
+    setup_logging(log_level="debug" if settings.DEBUG else "info")
     logger.info("Initializing ns-lite database...")
     init_db()
     if not settings.LDAP_ENABLED and settings.DEV_AUTH_ENABLED:
@@ -113,8 +129,24 @@ def create_app() -> FastAPI:
     app.include_router(auth_router)
     app.include_router(router)
     app.include_router(ws_router)
+    app.add_middleware(RequestIDMiddleware)
     app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(RateLimitMiddleware)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.CORS_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    if settings.ENABLE_METRICS:
+        try:
+            from prometheus_fastapi_instrumentator import Instrumentator
+
+            Instrumentator().instrument(app).expose(app)
+        except ImportError:
+            logger.warning("prometheus-fastapi-instrumentator not installed — metrics disabled")
 
     @app.get("/health", tags=["System"])
     def health_check():
@@ -133,6 +165,36 @@ def create_app() -> FastAPI:
                 status_code=503,
                 media_type="application/json",
             )
+
+    @app.get("/health/ready", tags=["System"])
+    def readiness_check():
+        import shutil
+
+        from sqlalchemy import text
+
+        from netscan_lite.db import engine
+
+        checks = {}
+        ok = True
+
+        try:
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            checks["database"] = "ok"
+        except Exception as e:
+            checks["database"] = f"error: {e}"
+            ok = False
+
+        nmap = shutil.which("nmap")
+        checks["nmap"] = "ok" if nmap else "not found"
+        if not nmap:
+            ok = False
+
+        return Response(
+            content='{"status":"%s","checks":%s}' % ("ready" if ok else "not_ready", __import__("json").dumps(checks)),
+            status_code=200 if ok else 503,
+            media_type="application/json",
+        )
 
     # Mount dashboard static files (built React app).
     # WARNING: This catch-all must be added LAST — any routes added after this will be swallowed.

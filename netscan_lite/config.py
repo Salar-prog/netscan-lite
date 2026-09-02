@@ -67,6 +67,12 @@ class Settings(BaseSettings):
     # API base URL (used by CLI auth command)
     API_BASE_URL: str = "http://127.0.0.1:8000"
 
+    # CORS
+    CORS_ORIGINS: list[str] = ["*"]
+
+    # Monitoring
+    ENABLE_METRICS: bool = False
+
     def model_post_init(self, __context: object) -> None:
         if not self.JWT_SECRET_KEY:
             object.__setattr__(self, "JWT_SECRET_KEY", _resolve_jwt_secret())
@@ -78,6 +84,8 @@ class Settings(BaseSettings):
             warnings.append("LDAP_ENABLED=true but LDAP_BIND_PASSWORD is empty")
         if not self.LDAP_ENABLED and not self.DEV_AUTH_ENABLED and not self.DEBUG:
             warnings.append("Neither LDAP nor DEV_AUTH enabled — no authentication active")
+        if self.LDAP_ENABLED and self.CORS_ORIGINS == ["*"]:
+            warnings.append("CORS_ORIGINS is ['*'] in production — lock this down")
         return warnings
 
 

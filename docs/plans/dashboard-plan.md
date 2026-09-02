@@ -22,7 +22,7 @@ Add a React SPA dashboard bundled into the FastAPI app. Single `ns-lite serve` s
 
 ### New Endpoints
 
-#### GET `/api/stats`
+#### GET `/api/v1/stats`
 
 Dashboard overview. No params.
 
@@ -38,7 +38,7 @@ Dashboard overview. No params.
 }
 ```
 
-#### POST `/api/import`
+#### POST `/api/v1/import`
 
 Multipart file upload.
 
@@ -49,7 +49,7 @@ Multipart file upload.
 {"imported": 5, "skipped": 2, "errors": ["Row 3: invalid IP 'x.x.x.x'"]}
 ```
 
-#### PUT `/api/groups/{group_id}`
+#### PUT `/api/v1/groups/{group_id}`
 
 Update group quarantine settings.
 
@@ -60,11 +60,11 @@ Update group quarantine settings.
 {"id": "...", "name": "infra", "miss_threshold": 5, "quarantine_hours": 72}
 ```
 
-#### DELETE `/api/groups/{group_id}`
+#### DELETE `/api/v1/groups/{group_id}`
 
 Delete group and all its IPs. Returns `204`.
 
-#### PUT `/api/ips/{ip_address}/reserve`
+#### PUT `/api/v1/ips/{ip_address}/reserve`
 
 Reserve or release an IP.
 

@@ -189,18 +189,17 @@ Replace:
 
 With:
 ```python
-    # Check file size (10MB limit)
-    MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10MB
-    content = await file.read()
-    if len(content) > MAX_UPLOAD_SIZE:
-        raise HTTPException(
-            status_code=413,
-            detail=f"File too large. Maximum size is {MAX_UPLOAD_SIZE // (1024 * 1024)}MB."
-        )
+# Check file size (10MB limit)
+MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10MB
+content = await file.read()
+if len(content) > MAX_UPLOAD_SIZE:
+    raise HTTPException(
+        status_code=413, detail=f"File too large. Maximum size is {MAX_UPLOAD_SIZE // (1024 * 1024)}MB."
+    )
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-        tmp.write(content)
-        tmp_path = Path(tmp.name)
+with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+    tmp.write(content)
+    tmp_path = Path(tmp.name)
 ```
 
 - [ ] **Step 2: Add test for upload size limit**
@@ -629,30 +628,26 @@ git commit -m "fix: optimize groups-detail to single query instead of N+1 (MEDIU
 
 Replace the function body with:
 ```python
-    # Single query for all status counts
-    status_counts = dict(
-        session.exec(
-            select(IPAddress.status, func.count(IPAddress.id)).group_by(IPAddress.status)
-        ).all()
-    )
+# Single query for all status counts
+status_counts = dict(session.exec(select(IPAddress.status, func.count(IPAddress.id)).group_by(IPAddress.status)).all())
 
-    total = sum(status_counts.values())
-    group_count = session.exec(select(func.count(Group.id))).one()
+total = sum(status_counts.values())
+group_count = session.exec(select(func.count(Group.id))).one()
 
-    last_ip = session.exec(
-        select(IPAddress).where(IPAddress.last_scanned_at.is_not(None)).order_by(IPAddress.last_scanned_at.desc())
-    ).first()
-    last_scan = str(last_ip.last_scanned_at) if last_ip and last_ip.last_scanned_at else None
+last_ip = session.exec(
+    select(IPAddress).where(IPAddress.last_scanned_at.is_not(None)).order_by(IPAddress.last_scanned_at.desc())
+).first()
+last_scan = str(last_ip.last_scanned_at) if last_ip and last_ip.last_scanned_at else None
 
-    return StatsResponse(
-        total_ips=total,
-        active=status_counts.get(IPStatus.ACTIVE_DETECTED, 0),
-        uncertain=status_counts.get(IPStatus.UNCERTAIN_FIREWALLED, 0),
-        available=status_counts.get(IPStatus.AVAILABLE_CANDIDATE, 0),
-        reserved=status_counts.get(IPStatus.ASSIGNED_RESERVED, 0),
-        groups=group_count,
-        last_scan=last_scan,
-    )
+return StatsResponse(
+    total_ips=total,
+    active=status_counts.get(IPStatus.ACTIVE_DETECTED, 0),
+    uncertain=status_counts.get(IPStatus.UNCERTAIN_FIREWALLED, 0),
+    available=status_counts.get(IPStatus.AVAILABLE_CANDIDATE, 0),
+    reserved=status_counts.get(IPStatus.ASSIGNED_RESERVED, 0),
+    groups=group_count,
+    last_scan=last_scan,
+)
 ```
 
 - [ ] **Step 2: Commit**

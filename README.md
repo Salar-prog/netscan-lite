@@ -101,18 +101,18 @@ ns-lite serve --host 0.0.0.0 --port 9000  # custom bind
 |--------|------|-------------|
 | `POST` | `/token` | Login and get JWT token |
 | `GET` | `/health` | Health check (no auth required) |
-| `GET` | `/api/stats` | Dashboard overview stats |
-| `GET` | `/api/groups` | List all groups |
-| `GET` | `/api/groups-detail` | List groups with IP counts |
-| `PUT` | `/api/groups/{id}` | Update group quarantine settings |
-| `DELETE` | `/api/groups/{id}` | Delete group and its IPs |
-| `GET` | `/api/available` | Get available IPs |
-| `GET` | `/api/ips` | List IPs (paginated, filterable) |
-| `GET` | `/api/ips/{ip}` | Get IP status |
-| `POST` | `/api/ips/{ip}/scan` | Scan a single IP |
-| `PUT` | `/api/ips/{ip}/reserve` | Reserve or release an IP |
-| `POST` | `/api/scan` | Trigger a scan |
-| `POST` | `/api/import` | Import IPs from CSV/XLSX |
+| `GET` | `/api/v1/stats` | Dashboard overview stats |
+| `GET` | `/api/v1/groups` | List all groups |
+| `GET` | `/api/v1/groups-detail` | List groups with IP counts |
+| `PUT` | `/api/v1/groups/{id}` | Update group quarantine settings |
+| `DELETE` | `/api/v1/groups/{id}` | Delete group and its IPs |
+| `GET` | `/api/v1/available` | Get available IPs |
+| `GET` | `/api/v1/ips` | List IPs (paginated, filterable) |
+| `GET` | `/api/v1/ips/{ip}` | Get IP status |
+| `POST` | `/api/v1/ips/{ip}/scan` | Scan a single IP |
+| `PUT` | `/api/v1/ips/{ip}/reserve` | Reserve or release an IP |
+| `POST` | `/api/v1/scan` | Trigger a scan |
+| `POST` | `/api/v1/import` | Import IPs from CSV/XLSX |
 | `WS` | `/ws/scan` | Real-time scan progress |
 
 ---
@@ -134,7 +134,7 @@ Use this for load balancer health checks or monitoring uptime.
 ### List Groups
 
 ```
-GET /api/groups
+GET /api/v1/groups
 ```
 
 ```json
@@ -163,7 +163,7 @@ Each group has its own quarantine settings. Use this to discover what groups exi
 Returns IPs that have been quarantined long enough and are safe to provision.
 
 ```
-GET /api/available?group=infra&count=3
+GET /api/v1/available?group=infra&count=3
 ```
 
 | Param | Type | Default | Description |
@@ -181,13 +181,13 @@ GET /api/available?group=infra&count=3
 **Example — get 5 available database IPs:**
 
 ```bash
-curl "http://localhost:8000/api/available?group=database&count=5"
+curl "http://localhost:8000/api/v1/available?group=database&count=5"
 ```
 
 **Example — get any available IP:**
 
 ```bash
-curl "http://localhost:8000/api/available?count=1"
+curl "http://localhost:8000/api/v1/available?count=1"
 ```
 
 **Error — group not found:**
@@ -205,7 +205,7 @@ curl "http://localhost:8000/api/available?count=1"
 Returns full status details for a single IP address.
 
 ```
-GET /api/ips/{ip}
+GET /api/v1/ips/{ip}
 ```
 
 ```json
@@ -234,7 +234,7 @@ GET /api/ips/{ip}
 **Example — check a specific IP:**
 
 ```bash
-curl http://localhost:8000/api/ips/10.0.0.1
+curl http://localhost:8000/api/v1/ips/10.0.0.1
 ```
 
 **Error — IP not found:**
@@ -252,7 +252,7 @@ curl http://localhost:8000/api/ips/10.0.0.1
 Runs nmap against the specified IPs and updates their status in the database.
 
 ```
-POST /api/scan
+POST /api/v1/scan
 Content-Type: application/json
 ```
 
@@ -319,13 +319,13 @@ Content-Type: application/json
 **Example — trigger scan via curl:**
 
 ```bash
-curl -X POST http://localhost:8000/api/scan \
+curl -X POST http://localhost:8000/api/v1/scan \
   -H "Content-Type: application/json" \
   -d '{"group": "infra"}'
 ```
 
 ```bash
-curl -X POST http://localhost:8000/api/scan \
+curl -X POST http://localhost:8000/api/v1/scan \
   -H "Content-Type: application/json" \
   -d '{"ips": ["10.0.0.1", "10.0.0.5"]}'
 ```
@@ -348,23 +348,23 @@ TOKEN=$(curl -s -X POST http://localhost:8000/token \
 curl http://localhost:8000/health
 
 # List groups
-curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/groups | jq .
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/v1/groups | jq .
 
 # Get 3 available infra IPs
 curl -H "Authorization: Bearer $TOKEN" \
-  "http://localhost:8000/api/available?group=infra&count=3" | jq .
+  "http://localhost:8000/api/v1/available?group=infra&count=3" | jq .
 
 # Check a specific IP
-curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/ips/10.0.0.1 | jq .
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/v1/ips/10.0.0.1 | jq .
 
 # Trigger a scan for a group
-curl -X POST http://localhost:8000/api/scan \
+curl -X POST http://localhost:8000/api/v1/scan \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"group": "infra"}' | jq .
 
 # Trigger a scan for specific IPs
-curl -X POST http://localhost:8000/api/scan \
+curl -X POST http://localhost:8000/api/v1/scan \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"ips": ["10.0.0.1", "10.0.0.5"]}' | jq .
@@ -387,21 +387,21 @@ requests.get(f"{BASE}/health").json()
 # {'status': 'ok'}
 
 # List groups
-groups = requests.get(f"{BASE}/api/groups", headers=headers).json()
+groups = requests.get(f"{BASE}/api/v1/groups", headers=headers).json()
 for g in groups:
     print(f"{g['name']}: threshold={g['miss_threshold']}, quarantine={g['quarantine_hours']}h")
 
 # Get available IPs
-resp = requests.get(f"{BASE}/api/available", params={"group": "infra", "count": 3}, headers=headers)
+resp = requests.get(f"{BASE}/api/v1/available", params={"group": "infra", "count": 3}, headers=headers)
 ips = resp.json()["available_ips"]
 print(f"Available: {ips}")
 
 # Get IP status
-ip_info = requests.get(f"{BASE}/api/ips/10.0.0.1", headers=headers).json()
+ip_info = requests.get(f"{BASE}/api/v1/ips/10.0.0.1", headers=headers).json()
 print(f"Status: {ip_info['status']}, misses: {ip_info['consecutive_misses']}")
 
 # Trigger scan
-result = requests.post(f"{BASE}/api/scan", json={"group": "infra"}, headers=headers).json()
+result = requests.post(f"{BASE}/api/v1/scan", json={"group": "infra"}, headers=headers).json()
 print(f"Scanned {result['scanned']}: {result['active']} active, {result['uncertain']} uncertain")
 ```
 
@@ -420,12 +420,12 @@ const { access_token } = await tokenResp.json();
 const headers = { Authorization: `Bearer ${access_token}` };
 
 // Get available IPs
-const resp = await fetch(`${BASE}/api/available?group=infra&count=3`, { headers });
+const resp = await fetch(`${BASE}/api/v1/available?group=infra&count=3`, { headers });
 const { available_ips } = await resp.json();
 console.log("Available:", available_ips);
 
 // Trigger scan
-const result = await fetch(`${BASE}/api/scan`, {
+const result = await fetch(`${BASE}/api/v1/scan`, {
   method: "POST",
   headers: { ...headers, "Content-Type": "application/json" },
   body: JSON.stringify({ group: "infra" }),
@@ -443,12 +443,12 @@ $tokenResp = Invoke-RestMethod "$base/token" -Method POST -Body "username=jsmith
 $headers = @{ Authorization = "Bearer $($tokenResp.access_token)" }
 
 # Get available IPs
-$ips = Invoke-RestMethod "$base/api/available?group=infra&count=3" -Headers $headers
+$ips = Invoke-RestMethod "$base/api/v1/available?group=infra&count=3" -Headers $headers
 $ips.available_ips
 
 # Trigger scan
 $body = @{ group = "infra" } | ConvertTo-Json
-Invoke-RestMethod -Uri "$base/api/scan" -Method POST -Body $body -ContentType "application/json" -Headers $headers
+Invoke-RestMethod -Uri "$base/api/v1/scan" -Method POST -Body $body -ContentType "application/json" -Headers $headers
 ```
 
 ---
@@ -466,7 +466,7 @@ data "http" "token" {
 
 # Get available IPs
 data "http" "available_ips" {
-  url = "http://ns-lite:8000/api/available?group=infra&count=3"
+  url = "http://ns-lite:8000/api/v1/available?group=infra&count=3"
   request_headers = {
     "Authorization" = "Bearer ${jsondecode(data.http.token.body).access_token}"
   }
@@ -505,7 +505,7 @@ resource "aws_instance" "nodes" {
 
 - name: Get available IPs from ns-lite
   ansible.builtin.uri:
-    url: "http://ns-lite:8000/api/available?group=database&count=2"
+    url: "http://ns-lite:8000/api/v1/available?group=database&count=2"
     headers:
       Authorization: "Bearer {{ token_resp.json.access_token }}"
     return_content: yes
@@ -600,11 +600,11 @@ This two-factor approach prevents freeing an IP just because a firewall dropped 
 
 ## Known Limitations
 
-ns-lite v1 is designed for **internal use** as an API-first tool. The following limitations are known and will be addressed in future releases:
+ns-lite is designed for **internal use** as an API-first tool. The following limitations are known:
 
 ### Synchronous Scan Endpoint
 
-`POST /api/scan` is synchronous — it blocks the HTTP worker for the entire nmap scan duration (up to 300s default). This is acceptable for single-team internal use but will not scale for multi-user or public-facing deployments. Background job support and async scan processing are planned for a future release.
+`POST /api/v1/scan` is synchronous — it blocks the HTTP worker for the entire nmap scan duration (up to 300s default). Use `POST /api/v1/scan/async` for non-blocking scans that return a job ID, then poll `GET /api/v1/scan/{job_id}` for status.
 
 ### Multi-User Concurrency
 

@@ -1,0 +1,25 @@
+[Unit]
+Description=ns-lite API Server
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=notify
+User=ns-lite
+Group=ns-lite
+WorkingDirectory=/opt/ns-lite
+EnvironmentFile=/opt/ns-lite/.env
+ExecStart=/usr/local/bin/ns-lite serve --host 0.0.0.0 --port 8000 --workers 4 --log-level info
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/ns-lite/data /home/ns-lite/.ns-lite
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

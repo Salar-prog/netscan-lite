@@ -4,6 +4,27 @@ All notable changes to ns-lite will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.2.0] - 2026-09-02
+
+### Added
+
+- **API versioning** — all endpoints now under `/api/v1/` prefix
+- **CORS middleware** — configurable origins via `CORS_ORIGINS` env var
+- **Background scan jobs** — `POST /api/v1/scan/async` returns job ID, poll with `GET /api/v1/scan/{job_id}`
+- **Readiness probe** — `GET /health/ready` checks DB + nmap availability
+- **Request ID middleware** — every request gets an `X-Request-ID` header (supports client-supplied IDs)
+- **Structured logging** — JSON-compatible format with request ID context (`logging_config.py`)
+- **Prometheus metrics** — optional `/metrics` endpoint via `ENABLE_METRICS=true`
+- **systemd service** — `deploy/ns-lite.service` for bare metal deployment
+- **Install script** — `deploy/install.sh` for one-command bare metal setup
+- **Production Docker Compose** — `docker-compose.prod.yml` with security hardening
+- **Production env template** — `.env.production` with documented settings
+
+### Changed
+
+- All API endpoints moved from `/api/` to `/api/v1/` (breaking change for existing API consumers)
+- Rate limiter now documented as per-worker (use reverse proxy for global limits)
+
 ## [0.1.0] - 2026-08-28
 
 ### Added

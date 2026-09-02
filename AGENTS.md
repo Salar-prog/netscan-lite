@@ -214,28 +214,33 @@ Migrations live in `alembic/versions/`. Each has a revision ID and describes sch
 | Method | Path | Description |
 |--------|------|-------------|
 | `POST` | `/token` | Login and get JWT token |
-| `GET` | `/health` | Health check (no auth required) |
-| `GET` | `/api/stats` | Dashboard overview stats |
-| `GET` | `/api/groups` | List all groups with quarantine settings |
-| `GET` | `/api/groups-detail` | List groups with IP counts |
-| `PUT` | `/api/groups/{id}` | Update group quarantine settings |
-| `DELETE` | `/api/groups/{id}` | Delete group and its IPs |
-| `GET` | `/api/available` | Get available IPs (params: `group`, `count`) |
-| `GET` | `/api/ips` | List IPs (paginated, filterable) |
-| `GET` | `/api/ips/{ip}` | Get IP status with full details |
-| `POST` | `/api/ips/{ip}/scan` | Scan a single IP |
-| `PUT` | `/api/ips/{ip}/reserve` | Reserve or release an IP |
-| `POST` | `/api/scan` | Trigger scan (body: `group` or `ips`) |
-| `POST` | `/api/import` | Import IPs from CSV/XLSX |
+| `GET` | `/health` | Liveness probe (no auth required) |
+| `GET` | `/health/ready` | Readiness probe (checks DB + nmap) |
+| `GET` | `/api/v1/stats` | Dashboard overview stats |
+| `GET` | `/api/v1/groups` | List all groups with quarantine settings |
+| `GET` | `/api/v1/groups-detail` | List groups with IP counts |
+| `PUT` | `/api/v1/groups/{id}` | Update group quarantine settings |
+| `DELETE` | `/api/v1/groups/{id}` | Delete group and its IPs |
+| `GET` | `/api/v1/available` | Get available IPs (params: `group`, `count`) |
+| `GET` | `/api/v1/ips` | List IPs (paginated, filterable) |
+| `GET` | `/api/v1/ips/{ip}` | Get IP status with full details |
+| `POST` | `/api/v1/ips/{ip}/scan` | Scan a single IP |
+| `PUT` | `/api/v1/ips/{ip}/reserve` | Reserve or release an IP |
+| `POST` | `/api/v1/scan` | Trigger synchronous scan (body: `group` or `ips`) |
+| `POST` | `/api/v1/scan/async` | Trigger background scan, returns job ID |
+| `GET` | `/api/v1/scan/{job_id}` | Get background scan job status |
+| `GET` | `/api/v1/scan-jobs` | List all scan jobs |
+| `POST` | `/api/v1/import` | Import IPs from CSV/XLSX |
 | `WS` | `/ws/scan` | Real-time scan progress |
 
-All endpoints except `/health` and `/token` require a valid JWT token in the `Authorization: Bearer <token>` header.
+All endpoints except `/health`, `/health/ready`, and `/token` require a valid JWT token in the `Authorization: Bearer <token>` header.
 
-Request/response models are defined in `api.py` (`AvailableResponse`, `ScanRequest`, `ScanResponse`, `GroupResponse`, `StatsResponse`, `ImportResponse`, `IPListResponse`).
+Request/response models are defined in `api.py` (`AvailableResponse`, `ScanRequest`, `ScanResponse`, `ScanJobResponse`, `ScanJobStatusResponse`, `GroupResponse`, `StatsResponse`, `ImportResponse`, `IPListResponse`).
 
 ## Known Limitations
 
-- `POST /scan` is synchronous — blocks until all nmap scans complete. Fine for current scale; would need background jobs for large batches.
+- `POST /scan` is synchronous — blocks until all nmap scans complete. Use `POST /scan/async` for non-blocking scans.
+- In-memory rate limiter is per-worker. With `WORKERS > 1`, effective limit is `max_requests × workers`. Use reverse proxy rate limiting for global limits.
 
 ## Code Conventions
 

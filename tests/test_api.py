@@ -11,8 +11,18 @@ def test_health_check(client):
     assert resp.json()["status"] == "healthy"
 
 
+def test_health_ready(client):
+    resp = client.get("/health/ready")
+    data = resp.json()
+    assert "checks" in data
+    assert "database" in data["checks"]
+    assert data["checks"]["database"] == "ok"
+    # nmap may or may not be installed in test env
+    assert "nmap" in data["checks"]
+
+
 def test_list_groups_empty(client, auth_headers):
-    resp = client.get("/api/groups", headers=auth_headers)
+    resp = client.get("/api/v1/groups", headers=auth_headers)
     assert resp.status_code == 200
     assert resp.json() == []
 
@@ -23,7 +33,7 @@ def test_list_groups_with_data(db_engine, client, auth_headers):
         session.add(group)
         session.commit()
 
-    resp = client.get("/api/groups", headers=auth_headers)
+    resp = client.get("/api/v1/groups", headers=auth_headers)
     assert resp.status_code == 200
     data = resp.json()
     assert len(data) == 1
@@ -32,7 +42,7 @@ def test_list_groups_with_data(db_engine, client, auth_headers):
 
 
 def test_get_available_ips_empty(client, auth_headers):
-    resp = client.get("/api/available", headers=auth_headers)
+    resp = client.get("/api/v1/available", headers=auth_headers)
     assert resp.status_code == 200
     assert resp.json()["available_ips"] == []
     assert resp.json()["count"] == 0
@@ -47,7 +57,7 @@ def test_get_available_ips_with_data(db_engine, client, auth_headers):
         session.add(ip)
         session.commit()
 
-    resp = client.get("/api/available?count=5", headers=auth_headers)
+    resp = client.get("/api/v1/available?count=5", headers=auth_headers)
     assert resp.status_code == 200
     assert resp.json()["available_ips"] == ["10.0.0.1"]
     assert resp.json()["count"] == 1
@@ -64,13 +74,13 @@ def test_get_available_ips_filter_by_group(db_engine, client, auth_headers):
         session.add(IPAddress(group_id=group_b.id, ip="10.0.0.2", status=IPStatus.AVAILABLE_CANDIDATE))
         session.commit()
 
-    resp = client.get("/api/available?group=group-a&count=10", headers=auth_headers)
+    resp = client.get("/api/v1/available?group=group-a&count=10", headers=auth_headers)
     assert resp.status_code == 200
     assert resp.json()["available_ips"] == ["10.0.0.1"]
 
 
 def test_get_available_ips_group_not_found(client, auth_headers):
-    resp = client.get("/api/available?group=nonexistent", headers=auth_headers)
+    resp = client.get("/api/v1/available?group=nonexistent", headers=auth_headers)
     assert resp.status_code == 404
 
 
@@ -83,7 +93,7 @@ def test_get_ip_status(db_engine, client, auth_headers):
         session.add(ip)
         session.commit()
 
-    resp = client.get("/api/ips/10.0.0.1", headers=auth_headers)
+    resp = client.get("/api/v1/ips/10.0.0.1", headers=auth_headers)
     assert resp.status_code == 200
     data = resp.json()
     assert data["ip"] == "10.0.0.1"
@@ -92,20 +102,63 @@ def test_get_ip_status(db_engine, client, auth_headers):
 
 
 def test_get_ip_status_not_found(client, auth_headers):
-    resp = client.get("/api/ips/10.0.0.99", headers=auth_headers)
+    resp = client.get("/api/v1/ips/10.0.0.99", headers=auth_headers)
     assert resp.status_code == 404
 
 
 def test_scan_no_ips(client, auth_headers):
-    resp = client.post("/api/scan", json={}, headers=auth_headers)
+    resp = client.post("/api/v1/scan", json={}, headers=auth_headers)
     assert resp.status_code == 400
 
 
 def test_scan_group_not_found(client, auth_headers):
-    resp = client.post("/api/scan", json={"group": "nonexistent"}, headers=auth_headers)
+    resp = client.post("/api/v1/scan", json={"group": "nonexistent"}, headers=auth_headers)
     assert resp.status_code == 404
 
 
 def test_unauthorized_without_token(client):
-    resp = client.get("/api/groups")
+    resp = client.get("/api/v1/groups")
     assert resp.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# CORS
+# ---------------------------------------------------------------------------
+
+
+def test_cors_headers_present(client):
+    resp = client.options(
+        "/api/v1/groups",
+        headers={
+            "Origin": "http://localhost:3000",
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+    assert resp.status_code == 200
+    assert "access-control-allow-origin" in resp.headers
+
+
+# ---------------------------------------------------------------------------
+# Async scan jobs
+# ---------------------------------------------------------------------------
+
+
+def test_trigger_scan_async_no_ips(client, auth_headers):
+    resp = client.post("/api/v1/scan/async", json={}, headers=auth_headers)
+    assert resp.status_code == 400
+
+
+def test_trigger_scan_async_group_not_found(client, auth_headers):
+    resp = client.post("/api/v1/scan/async", json={"group": "nonexistent"}, headers=auth_headers)
+    assert resp.status_code == 404
+
+
+def test_get_scan_status_not_found(client, auth_headers):
+    resp = client.get("/api/v1/scan/nonexistent-id", headers=auth_headers)
+    assert resp.status_code == 404
+
+
+def test_list_scan_jobs_empty(client, auth_headers):
+    resp = client.get("/api/v1/scan-jobs", headers=auth_headers)
+    assert resp.status_code == 200
+    assert resp.json() == []

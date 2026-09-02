@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "netscan-lite"
-version = "0.1.0"
+version = "0.2.0"
 description = "Lightweight IP discovery with quarantine logic"
 readme = "README.md"
 license = "MIT"
@@ -33,6 +33,7 @@ test = [
     "httpx>=0.24",
 ]
 docs = ["mkdocs-material>=9.0"]
+monitoring = ["prometheus-fastapi-instrumentator>=6.1"]
 
 [project.scripts]
 ns-lite = "netscan_lite.cli:cli"

@@ -9,6 +9,7 @@ import click
 from sqlmodel import Session, select
 
 from netscan_lite.db import engine, init_db
+from netscan_lite.logging_config import setup_logging
 from netscan_lite.models import Group, IPAddress, IPStatus
 
 logger = logging.getLogger(__name__)
@@ -18,8 +19,7 @@ logger = logging.getLogger(__name__)
 @click.option("--debug", is_flag=True, help="Enable debug logging")
 def cli(debug: bool):
     """ns-lite: Lightweight IP discovery with quarantine logic."""
-    level = logging.DEBUG if debug else logging.INFO
-    logging.basicConfig(level=level, format="%(levelname)s %(message)s")
+    setup_logging(log_level="debug" if debug else "info")
     init_db()
 
 

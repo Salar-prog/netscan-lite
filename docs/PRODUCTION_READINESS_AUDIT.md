@@ -10,8 +10,8 @@
 
 ### CRITICAL
 
-#### 1. Synchronous `/api/scan` Blocks Workers (api.py:176-211)
-`trigger_scan` is `async def` but calls `await scan_ips(...)` which runs nmap via `asyncio.create_subprocess_exec`. `POST /scan` is **synchronous** — it blocks the calling HTTP client for the entire nmap duration (up to 300s default). With gunicorn workers > 1, this will quickly exhaust worker capacity. No background job queue exists. For production with more than a handful of users, this is a denial-of-service vector.
+#### 1. Synchronous `/api/v1/scan` Blocks Workers (api.py:176-211)
+`trigger_scan` is `async def` but calls `await scan_ips(...)` which runs nmap via `asyncio.create_subprocess_exec`. `POST /scan` is **synchronous** — it blocks the calling HTTP client for the entire nmap duration (up to 300s default). Use `POST /api/v1/scan/async` for non-blocking scans. With gunicorn workers > 1, the synchronous endpoint will quickly exhaust worker capacity.
 
 **Fix:** Add a background task queue (e.g., Celery, arq, or a simple asyncio queue with worker processes) so `/scan` returns a job ID immediately.
 
@@ -160,7 +160,7 @@ The import is done lazily inside endpoint functions. This creates a circular-dep
 1. **Fix `ipaddress` NameError in cli.py** — crash bug, 1 line fix
 2. **Fix upload streaming** — read with limit, not after full read
 3. **Fix rate limiter** — exclude `/health`, add Redis backend or per-worker caveat, add TTL cleanup
-4. **Plan async scan architecture** — background job queue for `/api/scan`
+4. ~~Plan async scan architecture~~ — DONE: `/api/v1/scan/async` + job queue implemented
 5. **Move JWT to httpOnly cookies** — XSS token exfiltration risk
 6. **Add WS test coverage** — untested auth + validation path
 7. **Fix `updated_at` on group update** — 1 line fix

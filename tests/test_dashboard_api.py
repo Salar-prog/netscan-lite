@@ -13,7 +13,7 @@ from netscan_lite.models import Group, IPAddress, IPStatus
 
 
 def test_stats_empty(client, auth_headers):
-    resp = client.get("/api/stats", headers=auth_headers)
+    resp = client.get("/api/v1/stats", headers=auth_headers)
     assert resp.status_code == 200
     data = resp.json()
     assert data["total_ips"] == 0
@@ -36,7 +36,7 @@ def test_stats_with_data(db_engine, client, auth_headers):
         session.add(IPAddress(group_id=group.id, ip="10.0.0.4", status=IPStatus.ASSIGNED_RESERVED))
         session.commit()
 
-    resp = client.get("/api/stats", headers=auth_headers)
+    resp = client.get("/api/v1/stats", headers=auth_headers)
     assert resp.status_code == 200
     data = resp.json()
     assert data["total_ips"] == 4
@@ -53,7 +53,7 @@ def test_stats_with_data(db_engine, client, auth_headers):
 
 
 def test_groups_detail_empty(client, auth_headers):
-    resp = client.get("/api/groups-detail", headers=auth_headers)
+    resp = client.get("/api/v1/groups-detail", headers=auth_headers)
     assert resp.status_code == 200
     assert resp.json() == []
 
@@ -67,7 +67,7 @@ def test_groups_detail_with_counts(db_engine, client, auth_headers):
         session.add(IPAddress(group_id=group.id, ip="10.0.0.2", status=IPStatus.ACTIVE_DETECTED))
         session.commit()
 
-    resp = client.get("/api/groups-detail", headers=auth_headers)
+    resp = client.get("/api/v1/groups-detail", headers=auth_headers)
     assert resp.status_code == 200
     data = resp.json()
     assert len(data) == 1
@@ -90,7 +90,7 @@ def test_update_group(db_engine, client, auth_headers):
         group_id = str(group.id)
 
     resp = client.put(
-        f"/api/groups/{group_id}",
+        f"/api/v1/groups/{group_id}",
         json={"miss_threshold": 10, "quarantine_hours": 120},
         headers=auth_headers,
     )
@@ -104,7 +104,7 @@ def test_update_group(db_engine, client, auth_headers):
 def test_update_group_not_found(client, auth_headers):
     fake_id = str(uuid.uuid4())
     resp = client.put(
-        f"/api/groups/{fake_id}",
+        f"/api/v1/groups/{fake_id}",
         json={"miss_threshold": 5},
         headers=auth_headers,
     )
@@ -113,7 +113,7 @@ def test_update_group_not_found(client, auth_headers):
 
 def test_update_group_invalid_id(client, auth_headers):
     resp = client.put(
-        "/api/groups/not-a-uuid",
+        "/api/v1/groups/not-a-uuid",
         json={"miss_threshold": 5},
         headers=auth_headers,
     )
@@ -135,7 +135,7 @@ def test_delete_group(db_engine, client, auth_headers):
         session.commit()
         group_id = str(group.id)
 
-    resp = client.delete(f"/api/groups/{group_id}", headers=auth_headers)
+    resp = client.delete(f"/api/v1/groups/{group_id}", headers=auth_headers)
     assert resp.status_code == 204
 
     # Verify group and IPs are deleted
@@ -147,7 +147,7 @@ def test_delete_group(db_engine, client, auth_headers):
 
 def test_delete_group_not_found(client, auth_headers):
     fake_id = str(uuid.uuid4())
-    resp = client.delete(f"/api/groups/{fake_id}", headers=auth_headers)
+    resp = client.delete(f"/api/v1/groups/{fake_id}", headers=auth_headers)
     assert resp.status_code == 404
 
 
@@ -166,7 +166,7 @@ def test_reserve_ip(db_engine, client, auth_headers):
         session.commit()
 
     resp = client.put(
-        "/api/ips/10.0.0.1/reserve",
+        "/api/v1/ips/10.0.0.1/reserve",
         json={"status": "ASSIGNED_RESERVED"},
         headers=auth_headers,
     )
@@ -186,7 +186,7 @@ def test_release_ip(db_engine, client, auth_headers):
         session.commit()
 
     resp = client.put(
-        "/api/ips/10.0.0.1/reserve",
+        "/api/v1/ips/10.0.0.1/reserve",
         json={"status": "AVAILABLE_CANDIDATE"},
         headers=auth_headers,
     )
@@ -196,7 +196,7 @@ def test_release_ip(db_engine, client, auth_headers):
 
 def test_reserve_ip_not_found(client, auth_headers):
     resp = client.put(
-        "/api/ips/10.0.0.99/reserve",
+        "/api/v1/ips/10.0.0.99/reserve",
         json={"status": "ASSIGNED_RESERVED"},
         headers=auth_headers,
     )
@@ -205,7 +205,7 @@ def test_reserve_ip_not_found(client, auth_headers):
 
 def test_reserve_ip_invalid_status(client, auth_headers):
     resp = client.put(
-        "/api/ips/10.0.0.1/reserve",
+        "/api/v1/ips/10.0.0.1/reserve",
         json={"status": "INVALID_STATUS"},
         headers=auth_headers,
     )
@@ -220,7 +220,7 @@ def test_reserve_ip_invalid_status(client, auth_headers):
 def test_import_csv(db_engine, client, auth_headers):
     csv_content = b"ip,hostname,group\n10.0.0.1,web-01,infra\n10.0.0.2,db-01,database\n"
     resp = client.post(
-        "/api/import",
+        "/api/v1/import",
         files={"file": ("ips.csv", io.BytesIO(csv_content), "text/csv")},
         headers=auth_headers,
     )
@@ -233,7 +233,7 @@ def test_import_csv(db_engine, client, auth_headers):
 def test_import_csv_with_group_override(db_engine, client, auth_headers):
     csv_content = b"ip,hostname\n10.0.0.1,web-01\n10.0.0.2,db-01\n"
     resp = client.post(
-        "/api/import?group=override-group",
+        "/api/v1/import?group=override-group",
         files={"file": ("ips.csv", io.BytesIO(csv_content), "text/csv")},
         headers=auth_headers,
     )
@@ -251,7 +251,7 @@ def test_import_csv_with_group_override(db_engine, client, auth_headers):
 
 def test_import_invalid_file_type(client, auth_headers):
     resp = client.post(
-        "/api/import",
+        "/api/v1/import",
         files={"file": ("ips.txt", io.BytesIO(b"hello"), "text/plain")},
         headers=auth_headers,
     )
@@ -261,7 +261,7 @@ def test_import_invalid_file_type(client, auth_headers):
 def test_import_invalid_ip_in_csv(db_engine, client, auth_headers):
     csv_content = b"ip,hostname\n10.0.0.1,web-01\nnot-an-ip,bad\n"
     resp = client.post(
-        "/api/import",
+        "/api/v1/import",
         files={"file": ("ips.csv", io.BytesIO(csv_content), "text/csv")},
         headers=auth_headers,
     )
@@ -282,7 +282,7 @@ def test_import_duplicate_ip_skipped(db_engine, client, auth_headers):
 
     csv_content = b"ip,hostname\n10.0.0.1,web-01\n10.0.0.2,web-02\n"
     resp = client.post(
-        "/api/import",
+        "/api/v1/import",
         files={"file": ("ips.csv", io.BytesIO(csv_content), "text/csv")},
         headers=auth_headers,
     )
@@ -298,7 +298,7 @@ def test_import_duplicate_ip_skipped(db_engine, client, auth_headers):
 
 
 def test_list_ips_empty(client, auth_headers):
-    resp = client.get("/api/ips", headers=auth_headers)
+    resp = client.get("/api/v1/ips", headers=auth_headers)
     assert resp.status_code == 200
     data = resp.json()
     assert data["ips"] == []
@@ -315,7 +315,7 @@ def test_list_ips_with_data(db_engine, client, auth_headers):
         session.add(IPAddress(group_id=group.id, ip="10.0.0.2", status=IPStatus.AVAILABLE_CANDIDATE, hostname="db-01"))
         session.commit()
 
-    resp = client.get("/api/ips", headers=auth_headers)
+    resp = client.get("/api/v1/ips", headers=auth_headers)
     assert resp.status_code == 200
     data = resp.json()
     assert data["total"] == 2
@@ -335,7 +335,7 @@ def test_list_ips_filter_by_status(db_engine, client, auth_headers):
         session.add(IPAddress(group_id=group.id, ip="10.0.0.2", status=IPStatus.AVAILABLE_CANDIDATE))
         session.commit()
 
-    resp = client.get("/api/ips?status=ACTIVE_DETECTED", headers=auth_headers)
+    resp = client.get("/api/v1/ips?status=ACTIVE_DETECTED", headers=auth_headers)
     assert resp.status_code == 200
     data = resp.json()
     assert data["total"] == 1
@@ -353,7 +353,7 @@ def test_list_ips_filter_by_group(db_engine, client, auth_headers):
         session.add(IPAddress(group_id=g2.id, ip="10.0.0.2", status=IPStatus.ACTIVE_DETECTED))
         session.commit()
 
-    resp = client.get("/api/ips?group=infra", headers=auth_headers)
+    resp = client.get("/api/v1/ips?group=infra", headers=auth_headers)
     assert resp.status_code == 200
     assert resp.json()["total"] == 1
     assert resp.json()["ips"][0]["ip"] == "10.0.0.1"
@@ -368,7 +368,7 @@ def test_list_ips_search(db_engine, client, auth_headers):
         session.add(IPAddress(group_id=group.id, ip="10.0.0.2", status=IPStatus.ACTIVE_DETECTED, hostname="db-01"))
         session.commit()
 
-    resp = client.get("/api/ips?search=web", headers=auth_headers)
+    resp = client.get("/api/v1/ips?search=web", headers=auth_headers)
     assert resp.status_code == 200
     data = resp.json()
     assert data["total"] == 1
@@ -384,25 +384,25 @@ def test_list_ips_pagination(db_engine, client, auth_headers):
             session.add(IPAddress(group_id=group.id, ip=f"10.0.0.{i + 1}", status=IPStatus.ACTIVE_DETECTED))
         session.commit()
 
-    resp = client.get("/api/ips?page=1&page_size=2", headers=auth_headers)
+    resp = client.get("/api/v1/ips?page=1&page_size=2", headers=auth_headers)
     assert resp.status_code == 200
     data = resp.json()
     assert data["total"] == 5
     assert len(data["ips"]) == 2
     assert data["page"] == 1
 
-    resp2 = client.get("/api/ips?page=3&page_size=2", headers=auth_headers)
+    resp2 = client.get("/api/v1/ips?page=3&page_size=2", headers=auth_headers)
     data2 = resp2.json()
     assert len(data2["ips"]) == 1
 
 
 def test_list_ips_invalid_status(client, auth_headers):
-    resp = client.get("/api/ips?status=INVALID", headers=auth_headers)
+    resp = client.get("/api/v1/ips?status=INVALID", headers=auth_headers)
     assert resp.status_code == 400
 
 
 def test_list_ips_group_not_found(client, auth_headers):
-    resp = client.get("/api/ips?group=nonexistent", headers=auth_headers)
+    resp = client.get("/api/v1/ips?group=nonexistent", headers=auth_headers)
     assert resp.status_code == 404
 
 
@@ -412,7 +412,7 @@ def test_list_ips_group_not_found(client, auth_headers):
 
 
 def test_scan_single_ip_not_found(client, auth_headers):
-    resp = client.post("/api/ips/10.0.0.99/scan", headers=auth_headers)
+    resp = client.post("/api/v1/ips/10.0.0.99/scan", headers=auth_headers)
     assert resp.status_code == 404
 
 
