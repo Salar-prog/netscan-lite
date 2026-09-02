@@ -400,6 +400,14 @@ Returns:
 
 The health check verifies database connectivity. Returns 503 if the database is unreachable.
 
+### Readiness Probe
+
+```bash
+curl http://localhost:8000/health/ready
+```
+
+Returns 200 if the service is ready to accept traffic (database reachable and nmap available). Returns 503 if nmap is not installed or the database is unreachable. Use this for Kubernetes readiness probes or load balancer health checks.
+
 ### Docker Health Check
 
 The Docker image includes a built-in health check:

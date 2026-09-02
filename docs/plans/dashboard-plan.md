@@ -4,7 +4,7 @@
 
 Add a React SPA dashboard bundled into the FastAPI app. Single `ns-lite serve` serves both API + dashboard. WebSocket for real-time scan updates.
 
-**Stack:** React 18 + Vite + Tailwind CSS + react-router-dom  
+**Stack:** React 19 + Vite + Tailwind CSS + react-router-dom  
 **Backend mount:** FastAPI `StaticFiles` serving from `netscan_lite/static/`  
 **Real-time:** WebSocket at `/ws/scan`  
 **Auth:** JWT stored in localStorage, sent in `Authorization` header  

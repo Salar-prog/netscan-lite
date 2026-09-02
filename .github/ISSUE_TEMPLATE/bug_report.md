@@ -24,7 +24,7 @@ A clear and concise description of what you expected to happen.
 
 - OS: [e.g., Ubuntu 22.04]
 - Python version: [e.g., 3.12]
-- ns-lite version: [e.g., 0.1.0]
+- ns-lite version: [e.g., 0.2.0]
 - nmap version: [e.g., 7.94]
 
 ## Additional context

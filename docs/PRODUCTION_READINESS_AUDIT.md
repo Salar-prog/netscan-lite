@@ -1,5 +1,7 @@
 # Production Readiness Audit: ns-lite
 
+> **Note:** This is a historical audit snapshot from v0.1.0. Several items have been addressed in v0.2.0 (CORS, API versioning, async scan jobs, readiness probes, structured logging). See [CHANGELOG.md](../CHANGELOG.md) for current status.
+
 **Date:** 2026-08-31 (updated 2026-09-01)
 **Auditor:** Senior Code Review
 **Scope:** Full codebase analysis — security, bugs, over-engineering, production blockers

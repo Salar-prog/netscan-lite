@@ -1,5 +1,7 @@
 # ns-lite Project Analysis Report
 
+> **Note:** This document is a historical snapshot written for v0.1.0. For current status, see [CHANGELOG.md](../CHANGELOG.md) and [README.md](../README.md). v0.2.0 added API versioning (`/api/v1/`), async scan jobs, CORS, structured logging, readiness probes, and production deployment tooling.
+
 ## 1. Executive Summary
 
 **ns-lite** is a lightweight IP discovery tool extracted from [NetScan](https://github.com/Salar-prog/netscan). It scans specific IP addresses using nmap, tracks their availability over time via a quarantine state machine, and provides both CLI and web dashboard interfaces. Version 0.1.0.

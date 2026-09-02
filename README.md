@@ -101,6 +101,7 @@ ns-lite serve --host 0.0.0.0 --port 9000  # custom bind
 |--------|------|-------------|
 | `POST` | `/token` | Login and get JWT token |
 | `GET` | `/health` | Health check (no auth required) |
+| `GET` | `/health/ready` | Readiness probe (checks DB + nmap) |
 | `GET` | `/api/v1/stats` | Dashboard overview stats |
 | `GET` | `/api/v1/groups` | List all groups |
 | `GET` | `/api/v1/groups-detail` | List groups with IP counts |
@@ -111,7 +112,10 @@ ns-lite serve --host 0.0.0.0 --port 9000  # custom bind
 | `GET` | `/api/v1/ips/{ip}` | Get IP status |
 | `POST` | `/api/v1/ips/{ip}/scan` | Scan a single IP |
 | `PUT` | `/api/v1/ips/{ip}/reserve` | Reserve or release an IP |
-| `POST` | `/api/v1/scan` | Trigger a scan |
+| `POST` | `/api/v1/scan` | Trigger synchronous scan |
+| `POST` | `/api/v1/scan/async` | Trigger background scan (returns job ID) |
+| `GET` | `/api/v1/scan/{job_id}` | Get background scan job status |
+| `GET` | `/api/v1/scan-jobs` | List all scan jobs |
 | `POST` | `/api/v1/import` | Import IPs from CSV/XLSX |
 | `WS` | `/ws/scan` | Real-time scan progress |
 
