@@ -5,6 +5,8 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Docs](https://img.shields.io/badge/docs-live-blue.svg)](https://salar-prog.github.io/netscan-lite/)
 
+> **Note:** ns-lite v1 is intended for **internal use** as an API-first IP discovery tool. It is not hardened for public-facing deployments. See [Known Limitations](#known-limitations) for details.
+
 Lightweight IP discovery with quarantine logic.
 
 Extracted from [NetScan](https://github.com/Salar-prog/netscan) — scans specific IPs from CSV/XLSX files and tracks availability over time. Includes a React dashboard for visual monitoring.
@@ -595,6 +597,30 @@ Environment variables or `.env` file:
 4. **Quarantine complete**: After `miss_threshold` misses AND `quarantine_hours` elapsed → `AVAILABLE_CANDIDATE`
 
 This two-factor approach prevents freeing an IP just because a firewall dropped a ping.
+
+## Known Limitations
+
+ns-lite v1 is designed for **internal use** as an API-first tool. The following limitations are known and will be addressed in future releases:
+
+### Synchronous Scan Endpoint
+
+`POST /api/scan` is synchronous — it blocks the HTTP worker for the entire nmap scan duration (up to 300s default). This is acceptable for single-team internal use but will not scale for multi-user or public-facing deployments. Background job support and async scan processing are planned for a future release.
+
+### Multi-User Concurrency
+
+The rate limiter uses in-memory per-worker state. With `WORKERS > 1`, the effective rate limit is `120 × workers`. A Redis-backed rate limiter is planned for future releases to support proper multi-user deployments.
+
+### JWT Token Storage (Dashboard)
+
+The React dashboard stores JWT tokens in `localStorage`. This is acceptable for an internal tool behind TLS but would be a security risk for public-facing deployments. httpOnly cookie-based auth is planned for a future release.
+
+### CLI Event Loop
+
+`ns-lite scan` uses `asyncio.run()` which will fail if called from within an already-running event loop (e.g., from another async context). The CLI is a tertiary interface; the API should be used for programmatic access.
+
+### WebSocket Auth
+
+WebSocket connections pass the JWT token as a query parameter (`?token=...`), which may appear in server and proxy logs. This is standard for WebSocket auth but worth noting for security auditing.
 
 ## Scanner Behavior
 
