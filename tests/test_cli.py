@@ -111,8 +111,7 @@ def test_import_csv(runner, tmp_path):
 
     result = runner.invoke(cli, ["import-cmd", str(csv_file)])
     assert result.exit_code == 0, (
-        f"import-cmd failed: exit_code={result.exit_code}, "
-        f"output={result.output!r}, exception={result.exception!r}"
+        f"import-cmd failed: exit_code={result.exit_code}, output={result.output!r}, exception={result.exception!r}"
     )
     assert "Imported: 2" in result.output
 
