@@ -23,7 +23,7 @@ def cli(debug: bool):
     init_db()
 
 
-@cli.command()
+@cli.command("import-cmd")
 @click.argument("file_path", type=click.Path(exists=True))
 @click.option("--group", "-g", help="Override group name for all IPs in file")
 def import_cmd(file_path: str, group: Optional[str]):
