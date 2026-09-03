@@ -1,6 +1,6 @@
 # ns-lite Project Analysis Report
 
-> **Note:** This document is a historical snapshot written for v0.1.0. For current status, see [CHANGELOG.md](../CHANGELOG.md) and [README.md](../README.md). v0.2.0 added API versioning (`/api/v1/`), async scan jobs, CORS, structured logging, readiness probes, and production deployment tooling.
+> **Note:** This document is a historical snapshot written for v0.1.0. For current status, see [CHANGELOG.md](https://github.com/Salar-prog/netscan-lite/blob/main/CHANGELOG.md) and [README.md](https://github.com/Salar-prog/netscan-lite/blob/main/README.md). v0.2.0 added API versioning (`/api/v1/`), async scan jobs, CORS, structured logging, readiness probes, and production deployment tooling.
 
 ## 1. Executive Summary
 
