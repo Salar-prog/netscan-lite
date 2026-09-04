@@ -67,6 +67,8 @@ ns-lite status 10.0.0.1                    # check IP status
 ns-lite status 10.0.0.1 --json-output     # JSON output
 ns-lite serve                              # start API server
 ns-lite serve --host 0.0.0.0 --port 9000  # custom bind
+ns-lite db backup                          # backup database
+ns-lite db restore backup.db              # restore from backup
 ```
 
 ## CSV/XLSX Format
@@ -119,6 +121,10 @@ ns-lite serve --host 0.0.0.0 --port 9000  # custom bind
 | `POST` | `/api/v1/import` | Import IPs from CSV/XLSX |
 | `WS` | `/ws/scan` | Real-time scan progress |
 
+!!! note "Admin endpoints"
+
+    Scan, import, group update/delete, and IP reserve endpoints require membership in one of the `ADMIN_GROUPS` (default: `["ns-lite-admins"]`). Configure via the `ADMIN_GROUPS` environment variable.
+
 ---
 
 ### Health Check
@@ -128,7 +134,7 @@ GET /health
 ```
 
 ```json
-{"status": "ok"}
+{"status": "healthy", "service": "ns-lite"}
 ```
 
 Use this for load balancer health checks or monitoring uptime.
@@ -272,12 +278,6 @@ Content-Type: application/json
 {"ips": ["10.0.0.1", "10.0.0.5", "10.0.0.12"]}
 ```
 
-**Scan all IPs (no filter):**
-
-```json
-{}
-```
-
 **Response:**
 
 ```json
@@ -388,7 +388,7 @@ headers = {"Authorization": f"Bearer {token}"}
 
 # Health check
 requests.get(f"{BASE}/health").json()
-# {'status': 'ok'}
+# {'status': 'healthy', 'service': 'ns-lite'}
 
 # List groups
 groups = requests.get(f"{BASE}/api/v1/groups", headers=headers).json()
@@ -555,6 +555,7 @@ ns-lite serve --host 0.0.0.0 --port 8000 --workers 4
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
 | `LDAP_ENABLED` | Yes | Set to `true` for production |
 | `JWT_SECRET_KEY` | Recommended | Token signing key |
+| `ADMIN_GROUPS` | No | LDAP groups with admin access (default: `["ns-lite-admins"]`) |
 | `WORKERS` | No | Gunicorn workers (default: 1) |
 
 For full deployment options, see the [Deployment Guide](https://salar-prog.github.io/netscan-lite/deployment/).

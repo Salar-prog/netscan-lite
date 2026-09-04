@@ -170,9 +170,9 @@ ns-lite serve --log-level debug
 
 | Flag | Description |
 |------|-------------|
-| `--host` | Bind address (default: 127.0.0.1) |
+| `--host` | Bind address (default: 0.0.0.0) |
 | `--port` | Port number (default: 8000) |
-| `--workers` | Number of gunicorn workers (default: 1) |
+| `--workers` | Number of worker processes; uses gunicorn when > 1 (default: 1) |
 | `--log-level` | Log verbosity: debug, info, warning, error (default: info) |
 
 !!! tip "Production"
@@ -207,3 +207,12 @@ ns-lite db history           # show migration history
 | `migrate -m "msg"` | Generate new migration from model changes |
 | `current` | Show current revision |
 | `history` | Show migration history |
+| `backup [-o file]` | Backup database (SQLite: file copy, PostgreSQL: pg_dump -Fc) |
+| `restore <file>` | Restore database from backup |
+
+```bash
+ns-lite db backup                          # auto-generated timestamped filename
+ns-lite db backup -o my-backup.db          # specific output file
+ns-lite db restore ns-lite-backup-20260904T120000Z.db
+ns-lite db restore ns-lite-backup-20260904T120000Z.db --yes  # skip confirmation
+```

@@ -9,7 +9,7 @@ ns-lite serve --host 0.0.0.0 --port 9000  # custom bind
 
 ## Authentication
 
-All API endpoints (except `/health` and `/token`) require a valid JWT token.
+All API endpoints (except `/health`, `/health/ready`, and `/token`) require a valid JWT token.
 
 ### Login
 
@@ -229,6 +229,9 @@ curl http://localhost:8000/api/v1/ips/10.0.0.1
 
 ## Trigger Scan
 
+!!! admin "Requires admin"
+    User must be a member of `ADMIN_GROUPS` (default: `["ns-lite-admins"]`).
+
 Runs nmap against the specified IPs and updates their status in the database.
 
 ```
@@ -243,7 +246,7 @@ Content-Type: application/json
 | `group` | string? | Scan all IPs in this group |
 | `ips` | string[]? | Scan these specific IPs |
 
-You must provide either `group`, `ips`, or both (empty object scans all IPs).
+You must provide either `group` or `ips`.
 
 ### Response
 
@@ -269,17 +272,13 @@ curl -X POST http://localhost:8000/api/v1/scan \
 curl -X POST http://localhost:8000/api/v1/scan \
   -H "Content-Type: application/json" \
   -d '{"ips": ["10.0.0.1", "10.0.0.5", "10.0.0.12"]}'
-
-# Scan all IPs (no filter)
-curl -X POST http://localhost:8000/api/v1/scan \
-  -H "Content-Type: application/json" \
-  -d '{}'
 ```
 
 ### Errors
 
 | Status | Detail |
 |--------|--------|
+| `400` | `Provide either 'group' or 'ips' to scan` |
 | `400` | `No IPs to scan` |
 | `404` | `Group 'nonexistent' not found` |
 | `502` | `Scan failed: Nmap scan timed out after 300 seconds for 50 targets` |
@@ -338,6 +337,9 @@ Returns all groups with their IP counts. Used by the dashboard for the group tab
 
 ## Update Group
 
+!!! admin "Requires admin"
+    User must be a member of `ADMIN_GROUPS` (default: `["ns-lite-admins"]`).
+
 ```
 PUT /api/v1/groups/{group_id}
 Content-Type: application/json
@@ -367,6 +369,9 @@ Returns the updated `GroupDetailResponse`.
 ---
 
 ## Delete Group
+
+!!! admin "Requires admin"
+    User must be a member of `ADMIN_GROUPS` (default: `["ns-lite-admins"]`).
 
 ```
 DELETE /api/v1/groups/{group_id}
@@ -428,6 +433,9 @@ Returns a paginated list of all IPs with optional filters.
 
 ## Scan Single IP
 
+!!! admin "Requires admin"
+    User must be a member of `ADMIN_GROUPS` (default: `["ns-lite-admins"]`).
+
 ```
 POST /api/v1/ips/{ip_address}/scan
 ```
@@ -456,6 +464,9 @@ Scans a single IP and updates its status.
 ---
 
 ## Reserve or Release IP
+
+!!! admin "Requires admin"
+    User must be a member of `ADMIN_GROUPS` (default: `["ns-lite-admins"]`).
 
 ```
 PUT /api/v1/ips/{ip_address}/reserve
@@ -490,6 +501,10 @@ Reserve or release an IP address.
 ---
 
 ## Import IPs
+
+!!! admin "Requires admin"
+    User must be a member of `ADMIN_GROUPS` (default: `["ns-lite-admins"]`).
+    Maximum file size: 10 MB.
 
 ```
 POST /api/v1/import?group=infra
@@ -620,7 +635,7 @@ or
 
     # Health check
     requests.get(f"{BASE}/health").json()
-    # {'status': 'ok'}
+    # {'status': 'healthy', 'service': 'ns-lite'}
 
     # List groups
     groups = requests.get(f"{BASE}/api/v1/groups", headers=headers).json()

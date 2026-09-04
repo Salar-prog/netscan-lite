@@ -34,7 +34,7 @@
 
 ## Dashboard Build (optional)
 
-The React dashboard is pre-built in the `netscan_lite/static/` directory. To rebuild it from source:
+The React dashboard lives in `netscan_lite/dashboard/`. To build it:
 
 ```bash
 cd netscan_lite/dashboard
@@ -46,7 +46,7 @@ This outputs to `netscan_lite/static/` which is served automatically by `ns-lite
 
 !!! note
 
-    The dashboard build requires Node.js 18+. The pre-built files are included in the PyPI package.
+    The dashboard build requires Node.js 18+. When installing from PyPI, the pre-built files are included. When installing from source, you must build the dashboard manually if you want the web UI.
 
 ## nmap Setup
 
@@ -94,7 +94,7 @@ ns-lite uses nmap for network scanning. Install it for your platform:
 ## Verify Installation
 
 ```bash
-ns-lite --version
+ns-lite --help
 nmap --version
 ```
 

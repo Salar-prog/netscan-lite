@@ -40,6 +40,11 @@ ns-lite db migrate -m "msg"  # generate new migration
 ns-lite db current           # show current revision
 ns-lite db history           # show migration history
 
+# Database backup/restore
+ns-lite db backup                          # auto-generated timestamped filename
+ns-lite db backup -o my-backup.db          # specific output file
+ns-lite db restore ns-lite-backup-*.db     # restore from backup
+
 # Run tests
 pytest -v
 
@@ -153,6 +158,7 @@ netscan_lite/
     runner.py       # nmap wrapper, scans list of IPs, XML parsing
     classifier.py   # quarantine state machine
     service.py      # scan orchestration (called by CLI + API)
+    jobs.py         # async scan job queue with cleanup
   models.py         # Group, IPAddress (SQLModel tables)
   db.py             # SQLModel engine + session factory
   config.py         # minimal settings via pydantic-settings
@@ -245,6 +251,8 @@ ns-lite db history     # show migration history
 
 All endpoints except `/health`, `/health/ready`, and `/token` require a valid JWT token in the `Authorization: Bearer <token>` header.
 
+Admin endpoints (scan, scan/async, scan/{ip}, reserve, import, groups PUT/DELETE) additionally require membership in `ADMIN_GROUPS` (default: `["ns-lite-admins"]`).
+
 Request/response models are defined in `api.py` (`AvailableResponse`, `ScanRequest`, `ScanResponse`, `ScanJobResponse`, `ScanJobStatusResponse`, `GroupResponse`, `StatsResponse`, `ImportResponse`, `IPListResponse`).
 
 ## Known Limitations
@@ -279,6 +287,8 @@ Request/response models are defined in `api.py` (`AvailableResponse`, `ScanReque
 | `description` | string? | Optional description |
 | `miss_threshold` | int | Consecutive misses before eligible (default: 3) |
 | `quarantine_hours` | int | Hours in UNCERTAIN before AVAILABLE (default: 48) |
+| `created_at` | datetime | When the group was created |
+| `updated_at` | datetime | Last modification timestamp |
 
 ### IPAddress
 

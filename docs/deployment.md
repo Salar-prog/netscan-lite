@@ -58,6 +58,9 @@ LDAP_USE_SSL=true
 JWT_SECRET_KEY=generate-a-random-key-here
 DEBUG=false
 
+# Authorization
+ADMIN_GROUPS=["ns-lite-admins"]
+
 # Server
 WORKERS=4
 ```
@@ -92,6 +95,22 @@ docker compose exec db pg_dump -U netscan netscan > backup.sql
 # Restore
 cat backup.sql | docker compose exec -T db psql -U netscan netscan
 ```
+
+### Database Backup/Restore (CLI)
+
+ns-lite provides built-in backup and restore commands:
+
+```bash
+# Backup (SQLite: file copy, PostgreSQL: pg_dump -Fc)
+ns-lite db backup                          # auto-generated timestamped filename
+ns-lite db backup -o my-backup.db          # specific output file
+
+# Restore
+ns-lite db restore ns-lite-backup-20260904T120000Z.db
+ns-lite db restore ns-lite-backup-20260904T120000Z.db --yes  # skip confirmation
+```
+
+For PostgreSQL, these commands use `pg_dump`/`pg_restore` (requires `postgresql-client` installed).
 
 ### Customizing PostgreSQL
 

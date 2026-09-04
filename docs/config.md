@@ -18,7 +18,8 @@ ns-lite is configured via environment variables or a `.env` file in your working
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `WORKERS` | `1` | Number of gunicorn worker processes |
+| `WORKERS` | `1` | Number of worker processes; uses gunicorn when > 1 |
+| `LOG_LEVEL` | `info` | Uvicorn log verbosity (debug, info, warning, error). Not a Settings field — passed directly to uvicorn |
 | `API_BASE_URL` | `http://127.0.0.1:8000` | API server URL (used by CLI auth command) |
 | `CORS_ORIGINS` | `["*"]` | Allowed CORS origins (JSON array) |
 | `ENABLE_METRICS` | `false` | Enable Prometheus metrics endpoint at `/metrics` |
