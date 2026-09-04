@@ -10,7 +10,10 @@ from netscan_lite.models import Group, IPAddress, IPStatus
 
 @pytest.fixture
 def runner():
-    return CliRunner(mix_stderr=False)
+    try:
+        return CliRunner(mix_stderr=False)
+    except TypeError:
+        return CliRunner()
 
 
 def test_cli_help(runner):
@@ -45,7 +48,8 @@ def test_groups_json_output(runner, cli_session: Session):
     assert result.exit_code == 0
     import json
 
-    data = json.loads(result.output)
+    stdout = result.output.replace(result.stderr or "", "", 1)
+    data = json.loads(stdout)
     assert len(data) == 1
     assert data[0]["name"] == "infra"
 
@@ -101,7 +105,8 @@ def test_available_json_output(runner, cli_session: Session):
     assert result.exit_code == 0
     import json
 
-    data = json.loads(result.output)
+    stdout = result.output.replace(result.stderr or "", "", 1)
+    data = json.loads(stdout)
     assert data["available_ips"] == ["10.0.0.1"]
 
 
