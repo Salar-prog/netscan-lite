@@ -46,9 +46,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    # ponytail: in-memory per-worker rate limiter. With WORKERS > 1,
-    # effective limit is max_requests × workers. Use reverse proxy
-    # rate limiting (nginx limit_req) for global limits in production.
+    # ponytail: in-memory per-worker rate limiter.
+    # With WORKERS > 1, effective limit is max_requests * workers.
+    # Use reverse proxy rate limiting (nginx limit_req) for global limits.
     def __init__(self, app, max_requests: int = 120, window_seconds: int = 60):
         super().__init__(app)
         self.max_requests = max_requests
@@ -92,7 +92,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan handler."""
-    setup_logging(log_level="debug" if settings.DEBUG else "info")
+    setup_logging(log_level="debug" if settings.DEBUG else "info", json_format=settings.LOG_JSON)
     logger.info("Initializing ns-lite database...")
     init_db()
     if not settings.LDAP_ENABLED and settings.DEV_AUTH_ENABLED:
@@ -168,6 +168,7 @@ def create_app() -> FastAPI:
 
     @app.get("/health/ready", tags=["System"])
     def readiness_check():
+        import json
         import shutil
 
         from sqlalchemy import text
@@ -182,7 +183,8 @@ def create_app() -> FastAPI:
                 conn.execute(text("SELECT 1"))
             checks["database"] = "ok"
         except Exception as e:
-            checks["database"] = f"error: {e}"
+            logger.error("Readiness check — database: %s", e)
+            checks["database"] = "error"
             ok = False
 
         nmap = shutil.which("nmap")
@@ -191,7 +193,7 @@ def create_app() -> FastAPI:
             ok = False
 
         return Response(
-            content='{"status":"%s","checks":%s}' % ("ready" if ok else "not_ready", __import__("json").dumps(checks)),
+            content=json.dumps({"status": "ready" if ok else "not_ready", "checks": checks}),
             status_code=200 if ok else 503,
             media_type="application/json",
         )

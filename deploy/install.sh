@@ -9,9 +9,18 @@ if ! id -r ns-lite >/dev/null 2>&1; then
     echo "Created user: ns-lite"
 fi
 
-# Install Python package
-pip install -e ".[xlsx,postgres]"
+# Create venv and install Python package
+python3 -m venv /opt/ns-lite/venv
+/opt/ns-lite/venv/bin/pip install --upgrade pip
+/opt/ns-lite/venv/bin/pip install -e ".[xlsx,postgres]"
 echo "Installed ns-lite Python package"
+
+# Create wrapper script that uses the venv
+cat > /opt/ns-lite/venv/bin/ns-lite-wrapper << 'WRAPPER'
+#!/usr/bin/env bash
+exec /opt/ns-lite/venv/bin/ns-lite "$@"
+WRAPPER
+chmod +x /opt/ns-lite/venv/bin/ns-lite-wrapper
 
 # Create directories
 mkdir -p /opt/ns-lite/data /home/ns-lite/.ns-lite

@@ -75,6 +75,7 @@ class Settings(BaseSettings):
 
     # Monitoring
     ENABLE_METRICS: bool = False
+    LOG_JSON: bool = False
 
     def model_post_init(self, __context: object) -> None:
         if not self.JWT_SECRET_KEY:

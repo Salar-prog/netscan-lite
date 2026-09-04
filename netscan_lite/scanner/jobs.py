@@ -46,7 +46,6 @@ class ScanJob:
         self.completed_at: Optional[datetime] = None
 
 
-# ponytail: in-memory job store. Fine for single-worker; add Redis if multi-worker job tracking matters.
 _jobs: Dict[str, ScanJob] = {}
 MAX_CONCURRENT_JOBS = 3
 _semaphore = asyncio.Semaphore(MAX_CONCURRENT_JOBS)
