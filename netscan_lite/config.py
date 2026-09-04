@@ -67,8 +67,8 @@ class Settings(BaseSettings):
     # API base URL (used by CLI auth command)
     API_BASE_URL: str = "http://127.0.0.1:8000"
 
-    # CORS
-    CORS_ORIGINS: list[str] = ["*"]
+    # CORS (empty = disabled; set to your domain in production, e.g. ["https://ns-lite.internal"])
+    CORS_ORIGINS: list[str] = []
 
     # Authorization
     ADMIN_GROUPS: list[str] = ["ns-lite-admins"]

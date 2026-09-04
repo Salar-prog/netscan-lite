@@ -126,7 +126,7 @@ def test_unauthorized_without_token(client):
 # ---------------------------------------------------------------------------
 
 
-def test_cors_headers_present(client):
+def test_cors_headers_absent_by_default(client):
     resp = client.options(
         "/api/v1/groups",
         headers={
@@ -134,8 +134,7 @@ def test_cors_headers_present(client):
             "Access-Control-Request-Method": "GET",
         },
     )
-    assert resp.status_code == 200
-    assert "access-control-allow-origin" in resp.headers
+    assert "access-control-allow-origin" not in resp.headers
 
 
 # ---------------------------------------------------------------------------
