@@ -311,6 +311,162 @@ def db_history():
     command.history(alembic_cfg)
 
 
+@db.command("backup")
+@click.option("--output", "-o", default=None, help="Output file path (default: auto-generated timestamp)")
+def db_backup(output: Optional[str]):
+    """Backup the database to a file.
+
+    SQLite: copies the database file.
+    PostgreSQL: runs pg_dump.
+    """
+    import os
+    import shutil
+    import subprocess
+    from datetime import datetime, timezone
+    from urllib.parse import urlparse
+
+    from netscan_lite.config import settings
+
+    db_url = settings.DATABASE_URL
+    is_sqlite = db_url.startswith("sqlite")
+
+    if output is None:
+        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        ext = "db" if is_sqlite else "sql"
+        output = f"ns-lite-backup-{ts}.{ext}"
+
+    output_path = Path(output)
+
+    audit("cli_db_backup", user="cli", detail=f"backend={'sqlite' if is_sqlite else 'postgres'} output={output}")
+
+    if is_sqlite:
+        # Extract path from sqlite:///... or sqlite:////...
+        raw = db_url.split("sqlite:", 1)[1]
+        if raw.startswith("///"):
+            db_path = Path(raw[3:])
+        elif raw.startswith("////"):
+            db_path = Path("/" + raw[4:])
+        else:
+            db_path = Path(raw)
+
+        if not db_path.exists():
+            click.echo(f"Database file not found: {db_path}", err=True)
+            raise SystemExit(1)
+
+        shutil.copy2(db_path, output_path)
+    else:
+        parsed = urlparse(db_url)
+        env = {
+            "PGPASSWORD": parsed.password or "",
+        }
+        cmd = [
+            "pg_dump",
+            "-h",
+            parsed.hostname or "localhost",
+            "-p",
+            str(parsed.port or 5432),
+            "-U",
+            parsed.username or "postgres",
+            "-d",
+            parsed.path.lstrip("/") or "ns_lite",
+            "-Fc",  # custom format (compressed)
+            "-f",
+            str(output_path),
+        ]
+        try:
+            result = subprocess.run(cmd, env={**os.environ, **env}, capture_output=True, text=True)
+            if result.returncode != 0:
+                click.echo(f"pg_dump failed: {result.stderr}", err=True)
+                audit("cli_db_backup", user="cli", result="error", detail=result.stderr[:200])
+                raise SystemExit(1)
+        except FileNotFoundError:
+            click.echo("pg_dump not found — install postgresql-client", err=True)
+            raise SystemExit(1)
+
+    size = output_path.stat().st_size
+    audit("cli_db_backup_complete", user="cli", detail=f"output={output} size={size}")
+    click.echo(f"Backup saved to {output_path} ({size:,} bytes)")
+
+
+@db.command("restore")
+@click.argument("backup_file", type=click.Path(exists=True))
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation prompt")
+def db_restore(backup_file: str, yes: bool):
+    """Restore the database from a backup file.
+
+    SQLite: copies the backup file over the database.
+    PostgreSQL: runs pg_restore. Requires the backup to have been created
+    with 'ns-lite db backup' (pg_dump -Fc format).
+    """
+    import os
+    import shutil
+    import subprocess
+    from urllib.parse import urlparse
+
+    from netscan_lite.config import settings
+
+    backup_path = Path(backup_file)
+    db_url = settings.DATABASE_URL
+    is_sqlite = db_url.startswith("sqlite")
+
+    audit("cli_db_restore", user="cli", detail=f"backend={'sqlite' if is_sqlite else 'postgres'} source={backup_file}")
+
+    if not yes:
+        click.echo(f"This will OVERWRITE the current database with {backup_file}")
+        if not click.confirm("Continue?"):
+            raise SystemExit(0)
+
+    if is_sqlite:
+        raw = db_url.split("sqlite:", 1)[1]
+        if raw.startswith("///"):
+            db_path = Path(raw[3:])
+        elif raw.startswith("////"):
+            db_path = Path("/" + raw[4:])
+        else:
+            db_path = Path(raw)
+
+        # Create safety backup of current DB
+        safety = db_path.with_suffix(f".pre-restore-{Path(backup_file).stem}.db")
+        if db_path.exists():
+            shutil.copy2(db_path, safety)
+            click.echo(f"Current database backed up to {safety}")
+
+        shutil.copy2(backup_path, db_path)
+    else:
+        parsed = urlparse(db_url)
+        env = {
+            "PGPASSWORD": parsed.password or "",
+        }
+        cmd = [
+            "pg_restore",
+            "-h",
+            parsed.hostname or "localhost",
+            "-p",
+            str(parsed.port or 5432),
+            "-U",
+            parsed.username or "postgres",
+            "-d",
+            parsed.path.lstrip("/") or "ns_lite",
+            "--clean",
+            "--if-exists",
+            str(backup_path),
+        ]
+        try:
+            result = subprocess.run(cmd, env={**os.environ, **env}, capture_output=True, text=True)
+            if result.returncode != 0:
+                # pg_restore returns non-zero on warnings too; treat as success if it wrote output
+                if "error" in result.stderr.lower() and "warning" not in result.stderr.lower():
+                    click.echo(f"pg_restore failed: {result.stderr}", err=True)
+                    audit("cli_db_restore", user="cli", result="error", detail=result.stderr[:200])
+                    raise SystemExit(1)
+        except FileNotFoundError:
+            click.echo("pg_restore not found — install postgresql-client", err=True)
+            raise SystemExit(1)
+
+    audit("cli_db_restore_complete", user="cli", detail=f"source={backup_file}")
+    click.echo(f"Database restored from {backup_file}")
+
+
 @cli.command()
 @click.option("--username", "-u", prompt="Username", help="LDAP username")
 @click.option("--password", "-p", prompt=True, hide_input=True, help="LDAP password")
