@@ -21,7 +21,7 @@ over time, and won't release an IP just because a firewall dropped a ping.
 
 <div class="stat-item" markdown>
 
-<span class="stat-number">3</span>
+<span class="stat-number">8</span>
 <span class="stat-label">Commands</span>
 
 </div>
@@ -35,7 +35,7 @@ over time, and won't release an IP just because a firewall dropped a ping.
 
 <div class="stat-item" markdown>
 
-<span class="stat-number">84</span>
+<span class="stat-number">107</span>
 <span class="stat-label">Tests</span>
 
 </div>
@@ -127,8 +127,8 @@ REST API for integration.
 
 ### Zero bloat
 
-No scheduler, no database server. SQLite, nmap, and a CLI. The React dashboard
-is optional — use it or stick to the API.
+No scheduler, no message queue. SQLite for dev, PostgreSQL for production.
+nmap for scanning, React dashboard for monitoring. Use the CLI or the API.
 
 </div>
 
@@ -148,7 +148,7 @@ is optional — use it or stick to the API.
 
 ```bash
 # Import your IPs
-ns-lite import --file datacenter-ips.csv
+ns-lite import-cmd datacenter-ips.csv
 
 # Scan them
 ns-lite scan --group infra

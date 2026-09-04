@@ -171,41 +171,25 @@ pip install -e ".[xlsx,postgres]"
 
 ### Systemd Service
 
-Create `/etc/systemd/system/ns-lite.service`:
-
-```ini
-[Unit]
-Description=ns-lite IP Discovery Service
-After=network.target postgresql.service
-
-[Service]
-Type=simple
-User=ns-lite
-Group=ns-lite
-WorkingDirectory=/opt/ns-lite
-Environment=DATABASE_URL=postgresql://netscan:password@localhost/netscan
-Environment=LDAP_ENABLED=true
-Environment=LDAP_SERVER=ldap://ldap.example.com
-Environment=LDAP_BIND_DN=cn=ns-lite,dc=example,dc=com
-Environment=LDAP_BIND_PASSWORD=secret
-Environment=LDAP_SEARCH_BASE=dc=example,dc=com
-Environment=LDAP_SEARCH_FILTER=(sAMAccountName={username})
-Environment=LDAP_USE_SSL=true
-Environment=DEBUG=false
-Environment=WORKERS=4
-ExecStart=/usr/local/bin/ns-lite serve --host 0.0.0.0 --port 8000 --workers 4
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Enable and start:
+ns-lite ships a systemd unit file at `deploy/ns-lite.service`. Install it:
 
 ```bash
+sudo bash deploy/install.sh
+```
+
+This creates a dedicated `ns-lite` user, installs into `/opt/ns-lite/`, and sets up the systemd service with security hardening (`NoNewPrivileges`, `ProtectSystem=strict`, `AmbientCapabilities=CAP_NET_RAW`).
+
+Or manually copy the service file:
+
+```bash
+cp deploy/ns-lite.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable ns-lite
+```
+
+Configure `/opt/ns-lite/.env` with your settings, then:
+
+```bash
 sudo systemctl start ns-lite
 ```
 
@@ -267,7 +251,7 @@ ns-lite uses Alembic for database migrations. On first deploy:
 
 ```bash
 # Apply all migrations
-python3 -m alembic upgrade head
+ns-lite db upgrade
 ```
 
 For new deployments, `init_db()` in `db.py` creates tables automatically. Use Alembic for schema changes after initial setup.
@@ -450,7 +434,7 @@ You're trying to use dev auth without `DEBUG=true`. Either:
 Import IPs first:
 
 ```bash
-ns-lite import --file your-ips.csv
+ns-lite import-cmd your-ips.csv
 ```
 
 **Health check returns 503**

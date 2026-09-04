@@ -27,10 +27,10 @@
     ```bash
     git clone https://github.com/Salar-prog/netscan-lite.git
     cd netscan-lite
-    pip install -e ".[xlsx,test,docs]"
+    pip install -e ".[xlsx,test,docs,json-log]"
     ```
 
-    Installs everything: XLSX support, test dependencies, and MkDocs for docs.
+    Installs everything: XLSX support, test dependencies, MkDocs for docs, and JSON logging.
 
 ## Dashboard Build (optional)
 

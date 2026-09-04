@@ -7,7 +7,7 @@ Thanks for your interest in contributing.
 ```bash
 git clone https://github.com/Salar-prog/netscan-lite.git
 cd netscan-lite
-pip install -e ".[xlsx,test,docs]"
+pip install -e ".[xlsx,test,docs,json-log]"
 ```
 
 This installs ns-lite with XLSX support, test dependencies, and MkDocs for docs.
@@ -37,14 +37,16 @@ netscan_lite/
     runner.py       # nmap wrapper, XML parsing
     classifier.py   # quarantine state machine
     service.py      # scan orchestration (called by CLI + API)
+    jobs.py         # async scan job queue
   models.py         # Group, IPAddress (SQLModel)
   db.py             # SQLModel engine + session
   config.py         # pydantic-settings configuration
+  auth.py           # LDAP auth, JWT tokens
   importer.py       # CSV/XLSX parser
   cli.py            # Click CLI (ns-lite binary)
   api.py            # FastAPI REST endpoints
   main.py           # app entrypoint
-  auth.py           # LDAP auth, JWT tokens
+  logging_config.py # structured logging with request IDs
   dashboard/        # React SPA source (Vite + Tailwind)
     src/
       api.ts        # fetch wrapper + WebSocket client
@@ -57,6 +59,7 @@ tests/
 docs/               # MkDocs Material site
 alembic/            # database migrations
   versions/         # migration files
+deploy/             # systemd service + install script
 ```
 
 ## Running Tests

@@ -15,11 +15,11 @@ ns-lite is a lightweight IP discovery tool with quarantine logic, extracted from
 
 ```bash
 # Install with all optional deps
-pip install -e ".[xlsx,test,docs]"
+pip install -e ".[xlsx,test,docs,json-log]"
 
 # Import IPs from CSV/XLSX
-ns-lite import --file ips.csv
-ns-lite import --file ips.xlsx --group infra
+ns-lite import-cmd ips.csv
+ns-lite import-cmd ips.xlsx --group infra
 
 # Scan IPs
 ns-lite scan --group infra
@@ -32,6 +32,13 @@ ns-lite available --json-output
 
 # Start API server
 ns-lite serve
+
+# Database migrations
+ns-lite db upgrade           # apply migrations
+ns-lite db downgrade         # rollback one step
+ns-lite db migrate -m "msg"  # generate new migration
+ns-lite db current           # show current revision
+ns-lite db history           # show migration history
 
 # Run tests
 pytest -v
@@ -169,7 +176,7 @@ netscan_lite/
 - Tests use in-memory SQLite (override `DATABASE_URL` in fixtures)
 - Run with `pytest -v`
 - No nmap required for tests (mock scanner)
-- 84 tests covering: API, CLI, classifier, importer, scanner runner, dashboard API
+- 107 tests covering: API, CLI, classifier, importer, scanner runner, dashboard API, logging
 - CI tests Python 3.10–3.13
 - pytest config: `asyncio_mode = "auto"` in `pyproject.toml`
 
@@ -181,25 +188,28 @@ ns-lite uses Alembic for schema migrations. SQLite is the default for local dev;
 
 After changing models in `models.py`:
 ```bash
-python3 -m alembic revision --autogenerate -m "description of change"
-python3 -m alembic upgrade head
+ns-lite db migrate -m "description of change"
+ns-lite db upgrade
 ```
 
 ### Applying migrations
 
 ```bash
-python3 -m alembic upgrade head
+ns-lite db upgrade
 ```
 
 ### Rolling back
 
 ```bash
-python3 -m alembic downgrade -1
+ns-lite db downgrade
 ```
 
-### Migration files
+### Checking current state
 
-Migrations live in `alembic/versions/`. Each has a revision ID and describes schema changes.
+```bash
+ns-lite db current     # show current revision
+ns-lite db history     # show migration history
+```
 
 ## Scanner Behavior
 

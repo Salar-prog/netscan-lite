@@ -228,6 +228,73 @@ def serve(host: str, port: int, workers: int, log_level: str):
         uvicorn.run(app, host=host, port=port, log_level=log_level)
 
 
+@cli.group()
+def db():
+    """Database migration commands (Alembic)."""
+    pass
+
+
+@db.command("upgrade")
+@click.argument("revision", default="head")
+def db_upgrade(revision: str):
+    """Upgrade database to a revision (default: head)."""
+    from alembic.config import Config
+
+    from alembic import command
+
+    alembic_cfg = Config("alembic.ini")
+    command.upgrade(alembic_cfg, revision)
+    click.echo(f"Database upgraded to {revision}")
+
+
+@db.command("downgrade")
+@click.argument("revision", default="-1")
+def db_downgrade(revision: str):
+    """Downgrade database by one revision (default: -1)."""
+    from alembic.config import Config
+
+    from alembic import command
+
+    alembic_cfg = Config("alembic.ini")
+    command.downgrade(alembic_cfg, revision)
+    click.echo(f"Database downgraded to {revision}")
+
+
+@db.command("migrate")
+@click.option("-m", "--message", required=True, help="Migration message")
+def db_migrate(message: str):
+    """Generate a new migration from model changes."""
+    from alembic.config import Config
+
+    from alembic import command
+
+    alembic_cfg = Config("alembic.ini")
+    command.revision(alembic_cfg, autogenerate=True, message=message)
+    click.echo(f"Migration created: {message}")
+
+
+@db.command("current")
+def db_current():
+    """Show current revision."""
+    from alembic.config import Config
+
+    from alembic import command
+
+    alembic_cfg = Config("alembic.ini")
+    command.current(alembic_cfg)
+
+
+@db.command("history")
+def db_history():
+    """Show migration history."""
+    from alembic.config import Config
+
+    from alembic import command
+
+    alembic_cfg = Config("alembic.ini")
+    command.history(alembic_cfg)
+
+
 @cli.command()
 @click.option("--username", "-u", prompt="Username", help="LDAP username")
 @click.option("--password", "-p", prompt=True, hide_input=True, help="LDAP password")

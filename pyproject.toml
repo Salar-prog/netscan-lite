@@ -33,6 +33,7 @@ test = [
     "httpx>=0.24",
 ]
 docs = ["mkdocs-material>=9.0"]
+json-log = ["pythonjsonlogger>=2.0"]
 monitoring = ["prometheus-fastapi-instrumentator>=6.1"]
 
 [project.scripts]

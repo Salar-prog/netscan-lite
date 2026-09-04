@@ -25,7 +25,7 @@ ip,hostname,group
 
 ```bash
 # Import IPs from CSV
-ns-lite import --file ips.csv
+ns-lite import-cmd ips.csv
 
 # Scan all imported IPs
 ns-lite scan

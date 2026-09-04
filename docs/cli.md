@@ -25,14 +25,13 @@ The token is saved to `~/.ns-lite/token` and used automatically by other ns-lite
 Import IPs from a CSV or XLSX file.
 
 ```bash
-ns-lite import --file ips.csv
-ns-lite import --file ips.xlsx --group database
+ns-lite import-cmd ips.csv
+ns-lite import-cmd ips.xlsx --group database
 ```
 
 | Flag | Description |
 |------|-------------|
-| `--file` | Path to CSV or XLSX file (required) |
-| `--group` | Override group for all imported IPs |
+| `--group`, `-g` | Override group name for all IPs in file |
 
 **CSV/XLSX format:**
 
@@ -185,3 +184,26 @@ ns-lite serve --log-level debug
     ```
 
 See [API Reference](api.md) for all available endpoints.
+
+---
+
+## db
+
+Database migration commands (Alembic).
+
+```bash
+ns-lite db upgrade           # apply all migrations (default: head)
+ns-lite db upgrade abc123    # upgrade to a specific revision
+ns-lite db downgrade         # rollback one step (default: -1)
+ns-lite db migrate -m "add new field"  # generate a new migration
+ns-lite db current           # show current revision
+ns-lite db history           # show migration history
+```
+
+| Subcommand | Description |
+|------------|-------------|
+| `upgrade [revision]` | Upgrade database (default: `head`) |
+| `downgrade [revision]` | Downgrade database (default: `-1`) |
+| `migrate -m "msg"` | Generate new migration from model changes |
+| `current` | Show current revision |
+| `history` | Show migration history |

@@ -30,7 +30,7 @@ Extracted from [NetScan](https://github.com/Salar-prog/netscan) — scans specif
 pip install -e ".[xlsx]"
 
 # Import IPs
-ns-lite import --file ips.csv
+ns-lite import-cmd ips.csv
 
 # Scan them
 ns-lite scan
@@ -54,8 +54,8 @@ See [Dashboard Guide](https://salar-prog.github.io/netscan-lite/dashboard/) for 
 
 ```bash
 ns-lite auth --username jsmith              # login, store JWT token
-ns-lite import --file ips.csv              # import from CSV
-ns-lite import --file ips.xlsx --group db  # import with group override
+ns-lite import-cmd ips.csv                  # import from CSV
+ns-lite import-cmd ips.xlsx --group db      # import with group override
 ns-lite scan --group infra                 # scan a group
 ns-lite scan --ip 10.0.0.1,10.0.0.5       # scan specific IPs
 ns-lite scan --no-ports                    # host discovery only (no port scan)

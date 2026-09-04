@@ -101,7 +101,7 @@ GET /health
 Use this for load balancer health checks or monitoring uptime.
 
 ```json
-{"status": "ok"}
+{"status": "healthy", "service": "ns-lite"}
 ```
 
 ---
