@@ -9,6 +9,8 @@ from typing import Dict, List, Optional
 
 from sqlmodel import Session
 
+from netscan_lite.db import engine
+
 logger = logging.getLogger(__name__)
 
 
@@ -59,7 +61,7 @@ async def create_scan_job(
     job_id = str(uuid.uuid4())
     job = ScanJob(job_id=job_id, target_ips=target_ips, group_name=group_name)
     _jobs[job_id] = job
-    asyncio.create_task(_run_job(job, session))
+    asyncio.create_task(_run_job(job))
     return job
 
 
@@ -73,7 +75,7 @@ def list_jobs() -> List[ScanJob]:
     return list(_jobs.values())
 
 
-async def _run_job(job: ScanJob, session: Session) -> None:
+async def _run_job(job: ScanJob) -> None:
     """Execute the scan job."""
     async with _semaphore:
         job.status = JobStatus.RUNNING
@@ -82,7 +84,8 @@ async def _run_job(job: ScanJob, session: Session) -> None:
         try:
             from netscan_lite.scanner.service import scan_ips
 
-            result = await scan_ips(job.target_ips, session)
+            with Session(engine) as session:
+                result = await scan_ips(job.target_ips, session)
             job.result = result
             job.status = JobStatus.COMPLETED
             logger.info("Scan job %s completed", job.job_id)

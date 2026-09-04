@@ -16,6 +16,7 @@ RestartSec=5
 TimeoutStopSec=30
 
 NoNewPrivileges=true
+AmbientCapabilities=CAP_NET_RAW
 ProtectSystem=strict
 ProtectHome=true
 ReadWritePaths=/opt/ns-lite/data /home/ns-lite/.ns-lite
