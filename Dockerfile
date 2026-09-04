@@ -15,10 +15,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends nmap && rm -rf 
 WORKDIR /app
 COPY pyproject.toml README.md ./
 COPY netscan_lite/__init__.py netscan_lite/__init__.py
-RUN pip install --no-cache-dir -e ".[xlsx]" 2>/dev/null || pip install --no-cache-dir .
+RUN pip install --no-cache-dir -e ".[xlsx,postgres]" 2>/dev/null || pip install --no-cache-dir .
 
 COPY . .
-RUN pip install --no-cache-dir -e ".[xlsx]"
+RUN pip install --no-cache-dir -e ".[xlsx,postgres]"
 
 # Stage 3: Final runtime image
 FROM python:3.12-slim
@@ -32,8 +32,10 @@ RUN groupadd -r ns-lite && useradd -r -g ns-lite -d /home/ns-lite -s /sbin/nolog
 COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=builder /usr/local/bin/ns-lite /usr/local/bin/ns-lite
 COPY --from=dashboard-builder /app/netscan_lite/static /usr/local/lib/python3.12/site-packages/netscan_lite/static
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
-RUN chown -R ns-lite:ns-lite /usr/local/lib/python3.12/site-packages/netscan_lite
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh \
+    && chown -R ns-lite:ns-lite /usr/local/lib/python3.12/site-packages/netscan_lite
 
 USER ns-lite
 WORKDIR /app
@@ -43,4 +45,4 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-CMD ["ns-lite", "serve", "--host", "0.0.0.0"]
+ENTRYPOINT ["docker-entrypoint.sh"]

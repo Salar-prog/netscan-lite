@@ -20,6 +20,7 @@ from netscan_lite.auth import (
 )
 from netscan_lite.config import settings
 from netscan_lite.db import engine, get_session
+from netscan_lite.logging_config import audit
 from netscan_lite.models import Group, IPAddress, IPStatus, utc_now
 
 logger = logging.getLogger(__name__)
@@ -163,12 +164,14 @@ async def login(form: OAuth2PasswordRequestForm = Depends()):
     """Authenticate via LDAP and get a JWT token."""
     user = await ldap_authenticate(form.username, form.password)
     if user is None:
+        audit("login_failed", user=form.username, result="error", detail="invalid credentials")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
     token = create_access_token(username=user.username, dn=user.dn, groups=user.groups)
+    audit("login", user=user.username, detail=f"groups={user.groups}")
     return TokenResponse(access_token=token, username=user.username)
 
 
@@ -194,6 +197,7 @@ def get_available_ips(
         query = query.where(IPAddress.group_id == group_obj.id)
 
     ips = session.exec(query.limit(count)).all()
+    audit("available_ips", user=_user.username, detail=f"group={group or 'all'} count={count} returned={len(ips)}")
     return AvailableResponse(available_ips=[i.ip for i in ips], count=len(ips))
 
 
@@ -210,9 +214,10 @@ async def trigger_scan(
             raise HTTPException(status_code=404, detail=f"Group '{request.group}' not found")
         ips = session.exec(select(IPAddress).where(IPAddress.group_id == group_obj.id)).all()
         target_ips = [i.ip for i in ips]
+        group_obj_ref = group_obj
     elif request.ips:
         target_ips = request.ips
-        group_obj = None
+        group_obj_ref = None
     else:
         raise HTTPException(status_code=400, detail="Provide either 'group' or 'ips' to scan")
 
@@ -221,11 +226,19 @@ async def trigger_scan(
 
     from netscan_lite.scanner.service import scan_ips
 
+    audit("scan", user=_user.username, detail=f"group={request.group or 'all'} targets={len(target_ips)}")
     try:
-        result = await scan_ips(target_ips, session, group=group_obj)
+        result = await scan_ips(target_ips, session, group=group_obj_ref)
     except (TimeoutError, RuntimeError) as e:
+        audit("scan", user=_user.username, result="error", detail=f"error={e}")
         raise HTTPException(status_code=502, detail=f"Scan failed: {e}")
 
+    audit(
+        "scan_complete",
+        user=_user.username,
+        detail=f"scanned={result['scanned']} active={result['active']} "
+        f"uncertain={result['uncertain']} available={result['available']}",
+    )
     return ScanResponse(
         message=f"Scanned {result['scanned']} IP(s)",
         scanned=result["scanned"],
@@ -271,6 +284,7 @@ async def trigger_scan_async(
         group_name=group_obj.name if group_obj else None,
         session=session,
     )
+    audit("scan_async", user=_user.username, detail=f"job_id={job.job_id} targets={len(target_ips)}")
     return ScanJobResponse(
         job_id=job.job_id,
         status=job.status.value,
@@ -301,6 +315,7 @@ async def get_scan_status(
             available=job.result["available"],
         )
 
+    audit("scan_status", user=_user.username, detail=f"job_id={job_id} status={job.status.value}")
     return ScanJobStatusResponse(
         job_id=job.job_id,
         status=job.status.value,
@@ -320,6 +335,7 @@ async def list_scan_jobs(
     from netscan_lite.scanner.jobs import list_jobs
 
     jobs = list_jobs()
+    audit("scan_jobs_list", user=_user.username, detail=f"count={len(jobs)}")
     return [
         {
             "job_id": j.job_id,
@@ -340,6 +356,7 @@ def list_groups(
 ):
     """List all groups."""
     groups = session.exec(select(Group)).all()
+    audit("groups_list", user=_user.username, detail=f"count={len(groups)}")
     return [
         GroupResponse(
             id=str(g.id),
@@ -463,11 +480,19 @@ async def scan_single_ip(
     from netscan_lite.scanner.service import scan_ips
 
     group = session.get(Group, ip_obj.group_id)
+    audit("scan_single", user=_user.username, detail=f"ip={ip_address} group={group.name if group else 'auto'}")
     try:
         result = await scan_ips([ip_address], session, group=group)
     except (TimeoutError, RuntimeError) as e:
+        audit("scan_single", user=_user.username, result="error", detail=f"ip={ip_address} error={e}")
         raise HTTPException(status_code=502, detail=f"Scan failed: {e}")
 
+    audit(
+        "scan_single_complete",
+        user=_user.username,
+        detail=f"ip={ip_address} scanned={result['scanned']} active={result['active']} "
+        f"uncertain={result['uncertain']} available={result['available']}",
+    )
     return ScanResponse(
         message=f"Scanned {result['scanned']} IP(s)",
         scanned=result["scanned"],
@@ -544,6 +569,7 @@ def list_groups_detail(
         ).all()
         counts = {row[0]: row[1] for row in rows}
 
+    audit("groups_detail_list", user=_user.username, detail=f"count={len(groups)}")
     return [
         GroupDetailResponse(
             id=str(g.id),
@@ -588,6 +614,17 @@ def update_group(
 
     ip_count = session.exec(select(func.count(IPAddress.id)).where(IPAddress.group_id == group.id)).one()
 
+    changes = {
+        k: v
+        for k, v in {
+            "miss_threshold": request.miss_threshold,
+            "quarantine_hours": request.quarantine_hours,
+            "description": request.description,
+        }.items()
+        if v is not None
+    }
+    audit("group_update", user=_user.username, detail=f"group={group.name} changes={changes}")
+
     return GroupDetailResponse(
         id=str(group.id),
         name=group.name,
@@ -620,6 +657,7 @@ def delete_group(
         session.delete(ip)
     session.delete(group)
     session.commit()
+    audit("group_delete", user=_user.username, detail=f"group={group.name} ips_deleted={len(ips)}")
 
 
 # ---------------------------------------------------------------------------
@@ -639,11 +677,13 @@ def reserve_ip(
     if not ip_obj:
         raise HTTPException(status_code=404, detail=f"IP '{ip_address}' not found")
 
+    old_status = ip_obj.status.value
     ip_obj.status = IPStatus(request.status)
     session.add(ip_obj)
     session.commit()
     session.refresh(ip_obj)
 
+    audit("ip_reserve", user=_user.username, detail=f"ip={ip_address} from={old_status} to={request.status}")
     return {
         "ip": ip_obj.ip,
         "status": ip_obj.status.value,
@@ -682,6 +722,12 @@ async def import_file(
         from netscan_lite.importer import import_file as do_import
 
         result = do_import(tmp_path, session, group_name=group)
+        audit(
+            "import",
+            user=_user.username,
+            detail=f"file={file.filename} group={group or 'auto'} "
+            f"imported={result['imported']} skipped={result['skipped']} errors={len(result['errors'])}",
+        )
         return ImportResponse(
             imported=result["imported"],
             skipped=result["skipped"],
@@ -689,6 +735,7 @@ async def import_file(
         )
     except Exception as e:
         logger.warning("Import failed: %s", e)
+        audit("import", user=_user.username, result="error", detail=f"file={file.filename} error={e}")
         raise HTTPException(status_code=400, detail="Failed to parse import file")
     finally:
         tmp_path.unlink(missing_ok=True)

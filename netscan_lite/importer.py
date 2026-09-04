@@ -7,6 +7,7 @@ from typing import List, Optional
 from sqlmodel import Session, select
 
 from netscan_lite.config import settings
+from netscan_lite.logging_config import audit
 from netscan_lite.models import Group, IPAddress, IPStatus
 
 logger = logging.getLogger(__name__)
@@ -126,4 +127,9 @@ def import_file(file_path: Path, session: Session, group_name: Optional[str] = N
         stats["imported"] += 1
 
     session.commit()
+    audit(
+        "import_complete",
+        detail=f"file={file_path.name} imported={stats['imported']} "
+        f"skipped={stats['skipped']} errors={len(stats['errors'])}",
+    )
     return stats

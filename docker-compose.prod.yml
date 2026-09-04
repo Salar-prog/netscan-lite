@@ -29,9 +29,14 @@ services:
       LDAP_USE_SSL: ${LDAP_USE_SSL:-false}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-}
       JWT_EXPIRY_HOURS: ${JWT_EXPIRY_HOURS:-24}
-      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://ns-lite.internal}
       WORKERS: ${WORKERS:-4}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_JSON: ${LOG_JSON:-true}
       ENABLE_METRICS: ${ENABLE_METRICS:-false}
+      ADMIN_GROUPS: ${ADMIN_GROUPS:-ns-lite-admins}
+    volumes:
+      - jwt-secrets:/home/ns-lite/.ns-lite
     depends_on:
       db:
         condition: service_healthy
@@ -45,3 +50,4 @@ services:
 
 volumes:
   pgdata:
+  jwt-secrets:

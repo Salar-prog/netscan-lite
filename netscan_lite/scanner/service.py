@@ -7,6 +7,7 @@ from typing import Any, Callable, Coroutine, List, Optional
 from sqlmodel import Session, select
 
 from netscan_lite.config import settings
+from netscan_lite.logging_config import audit
 from netscan_lite.models import Group, IPAddress, IPStatus
 from netscan_lite.scanner.classifier import StateClassifier
 from netscan_lite.scanner.runner import NmapScanner, ports_to_dicts
@@ -39,6 +40,7 @@ async def scan_ips(
     if not ips:
         return {"scanned": 0, "active": 0, "uncertain": 0, "available": 0}
 
+    audit("scan_start", detail=f"targets={len(ips)} group={group.name if group else 'all'}")
     scanner = NmapScanner()
     probe_results = await scanner.scan_targets(ips, scan_ports=scan_ports)
 
@@ -113,4 +115,8 @@ async def scan_ips(
 
     session.commit()
 
+    audit(
+        "scan_complete",
+        detail=f"scanned={len(ips)} active={active} uncertain={uncertain} available={available}",
+    )
     return {"scanned": len(ips), "active": active, "uncertain": uncertain, "available": available}

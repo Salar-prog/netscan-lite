@@ -10,7 +10,7 @@ from netscan_lite.models import Group, IPAddress, IPStatus
 
 @pytest.fixture
 def runner():
-    return CliRunner()
+    return CliRunner(mix_stderr=False)
 
 
 def test_cli_help(runner):
@@ -67,7 +67,7 @@ def test_status_ip_found(runner, cli_session: Session):
 def test_status_ip_not_found(runner):
     result = runner.invoke(cli, ["status", "10.0.0.99"])
     assert result.exit_code == 1
-    assert "not found" in result.output
+    assert "not found" in result.stderr
 
 
 def test_available_empty(runner):

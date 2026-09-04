@@ -9,7 +9,7 @@ import click
 from sqlmodel import Session, select
 
 from netscan_lite.db import engine, init_db
-from netscan_lite.logging_config import setup_logging
+from netscan_lite.logging_config import audit, setup_logging
 from netscan_lite.models import Group, IPAddress, IPStatus
 
 logger = logging.getLogger(__name__)
@@ -33,9 +33,11 @@ def import_cmd(file_path: str, group: Optional[str]):
     """
     from netscan_lite.importer import import_file
 
+    audit("cli_import", user="cli", detail=f"file={file_path} group={group or 'auto'}")
     with Session(engine) as session:
         stats = import_file(Path(file_path), session, group)
 
+    audit("cli_import_complete", user="cli", detail=f"imported={stats['imported']} skipped={stats['skipped']}")
     click.echo(f"Imported: {stats['imported']}")
     click.echo(f"Skipped: {stats['skipped']}")
     if stats["errors"]:
@@ -79,6 +81,7 @@ def scan(group: Optional[str], ip: Optional[str], no_ports: bool):
             return
 
         click.echo(f"Scanning {len(target_ips)} IP(s)...")
+        audit("cli_scan", user="cli", detail=f"group={group or 'all'} targets={len(target_ips)}")
 
         from netscan_lite.scanner.service import scan_ips
 
@@ -93,8 +96,15 @@ def scan(group: Optional[str], ip: Optional[str], no_ports: bool):
             result = asyncio.run(scan_ips(target_ips, session, group=group_obj, scan_ports=not no_ports))
         except (TimeoutError, RuntimeError) as e:
             click.echo(f"Scan error: {e}", err=True)
+            audit("cli_scan", user="cli", result="error", detail=f"error={e}")
             raise SystemExit(1)
 
+        audit(
+            "cli_scan_complete",
+            user="cli",
+            detail=f"scanned={result['scanned']} active={result['active']} "
+            f"uncertain={result['uncertain']} available={result['available']}",
+        )
         click.echo(
             f"\nResults: {result['active']} active, {result['uncertain']} uncertain, {result['available']} available"
         )
@@ -106,6 +116,7 @@ def scan(group: Optional[str], ip: Optional[str], no_ports: bool):
 @click.option("--json-output", "-j", is_flag=True, help="Output as JSON")
 def available(group: Optional[str], count: int, json_output: bool):
     """Get available IPs for provisioning."""
+    audit("cli_available", user="cli", detail=f"group={group or 'all'} count={count}")
     with Session(engine) as session:
         query = select(IPAddress).where(IPAddress.status == IPStatus.AVAILABLE_CANDIDATE)
 
@@ -119,6 +130,7 @@ def available(group: Optional[str], count: int, json_output: bool):
         ips = session.exec(query.limit(count)).all()
         result = [i.ip for i in ips]
 
+        audit("cli_available_complete", user="cli", detail=f"returned={len(result)}")
         if json_output:
             click.echo(json.dumps({"available_ips": result, "count": len(result)}))
         else:
@@ -133,8 +145,10 @@ def available(group: Optional[str], count: int, json_output: bool):
 @click.option("--json-output", "-j", is_flag=True, help="Output as JSON")
 def groups(json_output: bool):
     """List all groups."""
+    audit("cli_groups", user="cli")
     with Session(engine) as session:
         all_groups = session.exec(select(Group)).all()
+        audit("cli_groups_complete", user="cli", detail=f"count={len(all_groups)}")
         if json_output:
             data = [
                 {
@@ -159,6 +173,7 @@ def groups(json_output: bool):
 @click.option("--json-output", "-j", is_flag=True, help="Output as JSON")
 def status(ip_address: str, json_output: bool):
     """Show status of a specific IP."""
+    audit("cli_status", user="cli", detail=f"ip={ip_address}")
     with Session(engine) as session:
         ip_obj = session.exec(select(IPAddress).where(IPAddress.ip == ip_address)).first()
         if not ip_obj:
@@ -196,6 +211,7 @@ def serve(host: str, port: int, workers: int, log_level: str):
     """Start the API server."""
     from netscan_lite.main import create_app
 
+    audit("cli_serve", user="cli", detail=f"host={host} port={port} workers={workers}")
     app = create_app()
 
     if workers > 1:
@@ -309,6 +325,8 @@ def auth(username: str, password: str, server: Optional[str]):
 
     from netscan_lite.config import settings
 
+    audit("cli_auth", user=username, detail=f"server={server or settings.API_BASE_URL}")
+
     # Determine API base URL: --server flag > env var > default
     api_base = server or settings.API_BASE_URL
 
@@ -323,12 +341,15 @@ def auth(username: str, password: str, server: Optional[str]):
     except urllib.error.HTTPError as e:
         if e.code == 401:
             click.echo("Authentication failed: invalid username or password", err=True)
+            audit("cli_auth", user=username, result="error", detail="invalid credentials")
             raise SystemExit(1)
         click.echo(f"Authentication failed: {e}", err=True)
+        audit("cli_auth", user=username, result="error", detail=f"http_error={e.code}")
         raise SystemExit(1)
     except urllib.error.URLError as e:
         click.echo(f"Cannot reach API server at {api_base}: {e}", err=True)
         click.echo("Make sure the API server is running: ns-lite serve", err=True)
+        audit("cli_auth", user=username, result="error", detail=f"connection_error={e}")
         raise SystemExit(1)
 
     # Save token to ~/.ns-lite/token
@@ -338,6 +359,7 @@ def auth(username: str, password: str, server: Optional[str]):
     token_file.write_text(result["access_token"])
     token_file.chmod(0o600)
 
+    audit("cli_auth_complete", user=username, detail=f"expires_in={settings.JWT_EXPIRY_HOURS}h")
     click.echo(f"Authenticated as {result['username']}")
     click.echo(f"Token saved to {token_file}")
     click.echo(f"Expires in {settings.JWT_EXPIRY_HOURS} hours")

@@ -13,7 +13,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from netscan_lite.api import auth_router, router, ws_router
 from netscan_lite.config import settings
 from netscan_lite.db import init_db
-from netscan_lite.logging_config import request_id_var, setup_logging
+from netscan_lite.logging_config import audit, request_id_var, setup_logging
 
 logger = logging.getLogger(__name__)
 
@@ -75,10 +75,17 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         now = time.time()
         window_start = now - self.window
 
+        # Stricter limit for auth endpoint
+        is_auth = request.url.path == "/token" and request.method == "POST"
+        max_req = 10 if is_auth else self.max_requests
+        window = 60 if is_auth else self.window
+        window_start = now - window
+
         # Prune old entries for this IP
         self._requests[client_ip] = [t for t in self._requests[client_ip] if t > window_start]
 
-        if len(self._requests[client_ip]) >= self.max_requests:
+        if len(self._requests[client_ip]) >= max_req:
+            audit("rate_limited", user=client_ip, detail=f"path={request.url.path}")
             return Response(content='{"detail":"Rate limit exceeded"}', status_code=429, media_type="application/json")
 
         self._requests[client_ip].append(now)
@@ -103,8 +110,17 @@ async def lifespan(app: FastAPI):
     warnings = settings.validate_production_config()
     for w in warnings:
         logger.warning("Config warning: %s", w)
+
+    from netscan_lite.scanner.jobs import start_cleanup_task, stop_cleanup_task
+
+    cleanup_task = start_cleanup_task()
+    audit("server_start", detail=f"version={app.version if hasattr(app, 'version') else 'unknown'}")
     logger.info("ns-lite ready")
     yield
+    audit("server_stop")
+    stop_cleanup_task()
+    if cleanup_task is not None:
+        cleanup_task.cancel()
     logger.info("ns-lite shutting down")
 
 
