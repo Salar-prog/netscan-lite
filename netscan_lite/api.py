@@ -28,6 +28,13 @@ router = APIRouter(prefix="/api/v1")
 ws_router = APIRouter()
 
 
+async def require_admin(_user: UserPayload = Depends(get_current_user)) -> UserPayload:
+    """Dependency: require the user to be in an admin group."""
+    if not set(_user.groups) & set(settings.ADMIN_GROUPS):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return _user
+
+
 def _escape_like(value: str) -> str:
     """Escape special characters for SQL LIKE patterns."""
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
@@ -193,7 +200,7 @@ def get_available_ips(
 @router.post("/scan", response_model=ScanResponse, tags=["Scanning"])
 async def trigger_scan(
     request: ScanRequest,
-    _user: UserPayload = Depends(get_current_user),
+    _user: UserPayload = Depends(require_admin),
     session: Session = Depends(get_session),
 ):
     """Scan IPs for availability."""
@@ -249,7 +256,7 @@ def _resolve_target_ips(request: ScanRequest, session: Session) -> tuple[list[st
 @router.post("/scan/async", response_model=ScanJobResponse, tags=["Scanning"])
 async def trigger_scan_async(
     request: ScanRequest,
-    _user: UserPayload = Depends(get_current_user),
+    _user: UserPayload = Depends(require_admin),
     session: Session = Depends(get_session),
 ):
     """Start a background scan. Returns a job ID for polling with GET /scan/{job_id}."""
@@ -373,7 +380,9 @@ def list_ips(
     if search:
         safe = _escape_like(search)
         search_pattern = f"%{safe}%"
-        conditions.append((IPAddress.ip.like(search_pattern)) | (IPAddress.hostname.like(search_pattern)))
+        conditions.append(
+            (IPAddress.ip.like(search_pattern, escape="\\")) | (IPAddress.hostname.like(search_pattern, escape="\\"))
+        )
 
     count_query = select(func.count(IPAddress.id))
     data_query = select(IPAddress)
@@ -443,7 +452,7 @@ def get_ip_status(
 @router.post("/ips/{ip_address}/scan", response_model=ScanResponse, tags=["IPs"])
 async def scan_single_ip(
     ip_address: str,
-    _user: UserPayload = Depends(get_current_user),
+    _user: UserPayload = Depends(require_admin),
     session: Session = Depends(get_session),
 ):
     """Scan a single IP."""
@@ -552,7 +561,7 @@ def list_groups_detail(
 def update_group(
     group_id: str,
     request: GroupUpdateRequest,
-    _user: UserPayload = Depends(get_current_user),
+    _user: UserPayload = Depends(require_admin),
     session: Session = Depends(get_session),
 ):
     """Update group quarantine settings."""
@@ -592,7 +601,7 @@ def update_group(
 @router.delete("/groups/{group_id}", status_code=204, tags=["Groups"])
 def delete_group(
     group_id: str,
-    _user: UserPayload = Depends(get_current_user),
+    _user: UserPayload = Depends(require_admin),
     session: Session = Depends(get_session),
 ):
     """Delete a group and all its IPs."""
@@ -622,7 +631,7 @@ def delete_group(
 def reserve_ip(
     ip_address: str,
     request: ReserveRequest,
-    _user: UserPayload = Depends(get_current_user),
+    _user: UserPayload = Depends(require_admin),
     session: Session = Depends(get_session),
 ):
     """Reserve or release an IP."""
@@ -651,7 +660,7 @@ def reserve_ip(
 async def import_file(
     file: UploadFile,
     group: Optional[str] = None,
-    _user: UserPayload = Depends(get_current_user),
+    _user: UserPayload = Depends(require_admin),
     session: Session = Depends(get_session),
 ):
     """Import IPs from a CSV or XLSX file."""

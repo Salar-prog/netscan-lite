@@ -70,6 +70,9 @@ class Settings(BaseSettings):
     # CORS
     CORS_ORIGINS: list[str] = ["*"]
 
+    # Authorization
+    ADMIN_GROUPS: list[str] = ["ns-lite-admins"]
+
     # Monitoring
     ENABLE_METRICS: bool = False
 

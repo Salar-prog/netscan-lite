@@ -27,7 +27,7 @@ def read_csv(file_path: Path) -> List[dict]:
     with open(file_path, "r", newline="", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            rows.append(row)
+            rows.append({k.strip().lower(): v for k, v in row.items() if k})
     return rows
 
 

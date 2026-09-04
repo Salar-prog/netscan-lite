@@ -75,6 +75,8 @@ def _isolate_cli_db(monkeypatch):
     # Enable dev auth for tests (LDAP_ENABLED=false by default)
     monkeypatch.setattr(settings, "DEV_AUTH_ENABLED", True)
     monkeypatch.setattr(settings, "DEBUG", True)
+    # Include "dev-admin" (the group dev auth assigns) in ADMIN_GROUPS so tests pass auth checks
+    monkeypatch.setattr(settings, "ADMIN_GROUPS", ["ns-lite-admins", "dev-admin"])
 
 
 @pytest.fixture(name="cli_session")

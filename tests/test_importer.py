@@ -116,3 +116,26 @@ def test_import_hostname_optional(session: Session, tmp_path):
     assert stats["imported"] == 1
     ip = session.exec(select(IPAddress)).first()
     assert ip.hostname is None
+
+
+def test_import_csv_uppercase_headers(session: Session, tmp_path):
+    csv = tmp_path / "upper.csv"
+    csv.write_text("IP,Hostname,Group\n10.0.0.1,web-01,infra\n")
+
+    stats = import_file(csv, session)
+
+    assert stats["imported"] == 1
+    ip = session.exec(select(IPAddress)).first()
+    assert ip.ip == "10.0.0.1"
+    assert ip.hostname == "web-01"
+
+
+def test_import_csv_mixed_case_headers(session: Session, tmp_path):
+    csv = tmp_path / "mixed.csv"
+    csv.write_text("IP,HOSTNAME,group\n10.0.0.1,db-01,data\n")
+
+    stats = import_file(csv, session)
+
+    assert stats["imported"] == 1
+    ip = session.exec(select(IPAddress)).first()
+    assert ip.ip == "10.0.0.1"

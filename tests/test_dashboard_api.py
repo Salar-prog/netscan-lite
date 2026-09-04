@@ -375,6 +375,36 @@ def test_list_ips_search(db_engine, client, auth_headers):
     assert data["ips"][0]["hostname"] == "web-01"
 
 
+def test_list_ips_search_underscore(db_engine, client, auth_headers):
+    with Session(db_engine) as session:
+        group = Group(name="infra")
+        session.add(group)
+        session.flush()
+        session.add(IPAddress(group_id=group.id, ip="10.0.0.1", status=IPStatus.ACTIVE_DETECTED, hostname="web_01"))
+        session.add(IPAddress(group_id=group.id, ip="10.0.0.2", status=IPStatus.ACTIVE_DETECTED, hostname="db_01"))
+        session.commit()
+
+    resp = client.get("/api/v1/ips?search=web_01", headers=auth_headers)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 1
+    assert data["ips"][0]["hostname"] == "web_01"
+
+
+def test_list_ips_search_percent(db_engine, client, auth_headers):
+    with Session(db_engine) as session:
+        group = Group(name="infra")
+        session.add(group)
+        session.flush()
+        session.add(IPAddress(group_id=group.id, ip="10.0.0.1", status=IPStatus.ACTIVE_DETECTED, hostname="100%"))
+        session.commit()
+
+    resp = client.get("/api/v1/ips?search=100%25", headers=auth_headers)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 1
+
+
 def test_list_ips_pagination(db_engine, client, auth_headers):
     with Session(db_engine) as session:
         group = Group(name="infra")

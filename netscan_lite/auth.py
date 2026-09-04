@@ -41,11 +41,14 @@ def _escape_ldap_value(value: str) -> str:
 def _ldap_authenticate_sync(username: str, password: str) -> Optional[UserPayload]:
     """Synchronous LDAP search+bind authentication. Runs in a thread."""
     server = Server(settings.LDAP_SERVER, get_info=ALL, use_ssl=settings.LDAP_USE_SSL)
-
-    # Step 1: Bind with service account
-    admin_conn = Connection(server, user=settings.LDAP_BIND_DN, password=settings.LDAP_BIND_PASSWORD, auto_bind=True)
+    admin_conn = None
 
     try:
+        # Step 1: Bind with service account
+        admin_conn = Connection(
+            server, user=settings.LDAP_BIND_DN, password=settings.LDAP_BIND_PASSWORD, auto_bind=True
+        )
+
         # Step 2: Search for user DN
         search_filter = settings.LDAP_SEARCH_FILTER.format(username=_escape_ldap_value(username))
         admin_conn.search(
@@ -79,7 +82,8 @@ def _ldap_authenticate_sync(username: str, password: str) -> Optional[UserPayloa
         logger.warning("LDAP authentication failed for: %s", username)
         return None
     finally:
-        admin_conn.unbind()
+        if admin_conn is not None:
+            admin_conn.unbind()
 
 
 async def ldap_authenticate(username: str, password: str) -> Optional[UserPayload]:

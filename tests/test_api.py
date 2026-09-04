@@ -162,3 +162,52 @@ def test_list_scan_jobs_empty(client, auth_headers):
     resp = client.get("/api/v1/scan-jobs", headers=auth_headers)
     assert resp.status_code == 200
     assert resp.json() == []
+
+
+# ---------------------------------------------------------------------------
+# Authorization — non-admin users get 403 on write endpoints
+# ---------------------------------------------------------------------------
+
+
+def test_non_admin_cannot_trigger_scan(client, db_engine, monkeypatch):
+    from netscan_lite.config import settings
+
+    monkeypatch.setattr(settings, "ADMIN_GROUPS", ["ns-lite-admins"])
+    non_admin_headers = {"Authorization": "Bearer non-admin-token"}
+    resp = client.post("/api/v1/scan", json={"ips": ["10.0.0.1"]}, headers=non_admin_headers)
+    assert resp.status_code == 403
+    assert "Admin access required" in resp.json()["detail"]
+
+
+def test_non_admin_cannot_delete_group(client, db_engine, auth_headers, monkeypatch):
+    from sqlmodel import Session
+
+    from netscan_lite.config import settings
+    from netscan_lite.models import Group
+
+    monkeypatch.setattr(settings, "ADMIN_GROUPS", ["ns-lite-admins"])
+
+    with Session(db_engine) as session:
+        group = Group(name="infra")
+        session.add(group)
+        session.commit()
+        group_id = str(group.id)
+
+    non_admin_headers = {"Authorization": "Bearer non-admin-token"}
+    resp = client.delete(f"/api/v1/groups/{group_id}", headers=non_admin_headers)
+    assert resp.status_code == 403
+
+
+def test_non_admin_cannot_reserve_ip(client, db_engine, monkeypatch):
+    from netscan_lite.config import settings
+
+    monkeypatch.setattr(settings, "ADMIN_GROUPS", ["ns-lite-admins"])
+    non_admin_headers = {"Authorization": "Bearer non-admin-token"}
+    resp = client.put("/api/v1/ips/10.0.0.1/reserve", json={"status": "ASSIGNED_RESERVED"}, headers=non_admin_headers)
+    assert resp.status_code == 403
+
+
+def test_non_admin_can_read(client, auth_headers):
+    non_admin_headers = {"Authorization": "Bearer non-admin-token"}
+    resp = client.get("/api/v1/groups", headers=non_admin_headers)
+    assert resp.status_code == 200
